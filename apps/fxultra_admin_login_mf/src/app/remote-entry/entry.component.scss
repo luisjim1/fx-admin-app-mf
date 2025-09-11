@@ -1,0 +1,155 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700&display=swap');
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Raleway', sans-serif;
+}
+
+#login-content {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  min-height: calc(100vh - 28px);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.logo-content {
+  position: relative;
+  width: 100%;
+  height: 104px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+}
+
+.logo {
+  position: absolute;
+  z-index: 100;
+  width: 287px;
+  height: 104px;
+  top: 30px;
+  left: 30px;
+  opacity: 1;
+}
+
+.left-half {
+  background-image: url('/assets/branding/fondo-login.jpg');
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.left-half::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #001865;
+  opacity: 0.7;
+  z-index: 100;
+}
+
+.right-half {
+  flex: 1;
+  background-color: #001865;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.form-login {
+  width: 100%;
+  max-width: 360px;
+  position: relative;
+  text-align: left;
+}
+
+.form-login .description {
+  font-family: 'Raleway', sans-serif;
+  font-weight: 400;
+  font-size: 28px;
+  color: #60D1E0;
+  line-height: 120%;
+  margin-bottom: 8px;
+}
+
+.form-login .title {
+  font-family: 'Raleway', sans-serif;
+  font-weight: 700;
+  font-size: 48px;
+  color: #FFFFFF;
+  line-height: 100%;
+  margin-bottom: 16px;
+}
+
+.btn-login {
+  font-family: 'Raleway', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 120%;
+  color: #FFFFFF;
+  background-color: #0098DD;
+  border: none;
+  border-radius: 100px;
+  width: 200px;
+  height: 44px;
+  padding: 11px 30px;
+  margin-top: 15px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  text-align: center;
+}
+
+.btn-login:hover {
+  background-color: #007bb3;
+}
+
+.monex-shape {
+  position: absolute;
+  bottom: 0;
+  right: -7px;
+  width: 360px;
+  height: 385px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* Footer del login: usa Roboto */
+.login-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 28px;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  background: #ffffff;
+  color: #808080;
+  padding: 6px 20px;
+  border-top: 1px solid #e6e6e6;
+  z-index: 2000;
+}
+
+.login-footer > div {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 1;
+}

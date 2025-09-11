@@ -1,0 +1,192 @@
+<!-- step3-sentido-operacion.html — COMPLETO ACTUALIZADO -->
+<div class="sentido-operacion-container">
+  <!-- ===== Título ===== -->
+  <div class="sentido-titulo">
+    Selecciona por moneda previamente seleccionada el sentido de la operación para vista de cliente.
+  </div>
+
+  <div class="tabla-block">
+    <!-- ===== Checkbox masivo (abre modal) ===== -->
+    <label class="check-todos" (click)="$event.stopPropagation()">
+      <input
+        type="checkbox"
+        class="custom-checkbox"
+        [checked]="masivo.activo"
+        (change)="abrirModalMasivo($event)"
+      />
+      <span class="checkbox-custom"></span>
+      <span class="check-todos-label">Mismo sentido de operación todos los pares de divisas</span>
+    </label>
+
+    <!-- ===== Tabla ===== -->
+    <div class="tabla-wrapper">
+      <table class="tabla-sentido" role="table">
+        <colgroup>
+          <col class="col-check" />
+          <col class="col-par" />
+          <col class="col-sentido" />
+        </colgroup>
+
+        <thead>
+          <tr>
+            <th></th>
+            <th>Pares de divisas</th>
+            <th>
+              Sentido<br />
+              <span class="sub">Vista cliente</span>
+            </th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let row of filas">
+            <td>
+              <label class="par-checkbox par-checkbox--tabla">
+                <input
+                  type="checkbox"
+                  class="custom-checkbox"
+                  [(ngModel)]="row._selected"
+                  (ngModelChange)="onSelectRowChange(row)"
+                />
+                <span class="checkbox-custom"></span>
+              </label>
+            </td>
+
+            <td>{{ row.parNombre }}</td>
+
+            <td>
+              <div class="sentido-box" [class.error]="showAlertaSinSeleccion && !row.sentido">
+                <div class="select-sim" [class.open]="row._open">
+                  <button type="button" class="select-btn" (click)="toggleMenu(row)">
+                    <span class="select-label">{{ labelDe(row.sentido) || 'Selecciona' }}</span>
+                    <span class="caret"></span>
+                  </button>
+
+                  <div class="menu" *ngIf="row._open">
+                    <button type="button" class="menu-item" [class.active]="row.sentido === 'ambos'" (click)="seleccionar(row,'ambos')">
+                      <span class="mini-checkbox" aria-hidden="true"></span>
+                      <span>Compra y venta</span>
+                    </button>
+                    <button type="button" class="menu-item" [class.active]="row.sentido === 'compra'" (click)="seleccionar(row,'compra')">
+                      <span class="mini-checkbox" aria-hidden="true"></span>
+                      <span>Compra</span>
+                    </button>
+                    <button type="button" class="menu-item" [class.active]="row.sentido === 'venta'" (click)="seleccionar(row,'venta')">
+                      <span class="mini-checkbox" aria-hidden="true"></span>
+                      <span>Venta</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ===== Mensaje de error global ===== -->
+    <div class="alerta-wrapper">
+      <div *ngIf="showAlertaSinSeleccion" class="mensaje-error">
+        <i class="fas fa-exclamation-circle"></i>
+        <span class="strong">Selecciona el sentido de operación para cada una de las divisas</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Acciones ===== -->
+  <div class="acciones">
+    <button class="btn-principal" type="button" (click)="aplicarConfiguracion()">Aplicar configuración</button>
+    <span class="restablecer" (click)="restablecer()">Reestablecer</span>
+  </div>
+
+  <div class="subinfo-row"><span class="progreso">Paso 3 de 7</span></div>
+</div>
+
+<!-- ===== Modal MASIVO ===== -->
+<div class="modal-backdrop" *ngIf="mostrarModalMasivo" (click)="cerrarModalMasivo(false)"></div>
+<div
+  class="modal-contenedor"
+  *ngIf="mostrarModalMasivo"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Sentido de Operación"
+  (click)="$event.stopPropagation()"
+  style="width: 326px;"
+>
+  <button
+    class="modal-cerrar"
+    type="button"
+    (click)="cerrarModalMasivo(false); $event.stopPropagation()"
+    aria-label="Cerrar"
+    title="Cerrar"
+  >
+    <svg class="modal-cerrar__icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+
+  <div class="modal-body">
+    <div class="modal-titulo">Sentido de Operación</div>
+    <p class="modal-desc">Selecciona el sentido de operación que aplicará a todas las divisas</p>
+
+    <div class="modal-catalogo">
+      <button type="button"
+              class="catalogo-item"
+              [class.active]="modalSentido === 'ambos'"
+              (click)="modalSentido = 'ambos'">
+        <span class="mini-checkbox" aria-hidden="true"></span>
+        <span>Compra y venta</span>
+      </button>
+
+      <button type="button"
+              class="catalogo-item"
+              [class.active]="modalSentido === 'compra'"
+              (click)="modalSentido = 'compra'">
+        <span class="mini-checkbox" aria-hidden="true"></span>
+        <span>Compra</span>
+      </button>
+
+      <button type="button"
+              class="catalogo-item"
+              [class.active]="modalSentido === 'venta'"
+              (click)="modalSentido = 'venta'">
+        <span class="mini-checkbox" aria-hidden="true"></span>
+        <span>Venta</span>
+      </button>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-principal btn-modal" (click)="aplicarModalMasivo()">Aplicar sentido</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal OK pequeño (Datos actualizados) ===== -->
+<div class="modal-backdrop" *ngIf="mostrarModalOk" (click)="cerrarModalOk()"></div>
+<div
+  class="modal-contenedor modal-ok-peq"
+  *ngIf="mostrarModalOk"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Datos actualizados"
+  (click)="$event.stopPropagation()"
+>
+  <button
+    class="modal-cerrar"
+    type="button"
+    (click)="cerrarModalOk(); $event.stopPropagation()"
+    aria-label="Cerrar"
+    title="Cerrar"
+  >
+    <svg class="modal-cerrar__icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+    </svg>
+  </button>
+
+  <div class="modal-body modal-ok__body-peq">
+    <div class="modal-titulo modal-ok__titulo-peq">Datos actualizados exitosamente</div>
+    <div class="modal-footer">
+      <button class="btn-principal btn-modal btn-modal--peq" (click)="cerrarModalOk()">Aceptar</button>
+    </div>
+  </div>
+</div>

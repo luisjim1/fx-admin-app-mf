@@ -1,0 +1,101 @@
+<link
+  rel="stylesheet"
+  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+/>
+
+<div class="home-container">
+  <header class="app-header">
+    <div class="header-left">
+      <img
+        src="/assets/branding/Logo_MONEX_Fondo_oscuro_2.png"
+        alt="Monex Logo"
+        class="monex-logo"
+      />
+    </div>
+    <div class="header-right">
+      <i class="fas fa-bell header-icon"></i>
+      <i class="fas fa-exclamation-circle header-icon"></i>
+      <i class="fas fa-cog header-icon"></i>
+      <i class="fas fa-info-circle header-icon"></i>
+      <div class="logout-button-container">
+        <button class="btn btn-danger btn-sm" (click)="logout()">
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="page-content-wrapper">
+    <div class="breadcrumb-wrapper">
+      <a class="page-title" routerLink="/home">Página de inicio</a>
+      <ng-container *ngIf="mainTitleText === 'Estrategias Operativas de Banca Digital'">
+        <span class="breadcrumb-separator"> / </span>
+        <span class="breadcrumb-current">
+          Estrategias operativas de la Banca Digital
+        </span>
+      </ng-container>
+    </div>
+
+    <div class="content-wrapper">
+      <div class="title-description-wrapper">
+        <div class="main-title">{{ mainTitleText }}</div>
+        <div class="main-description" *ngIf="mainTitleDescription">
+          {{ mainTitleDescription }}
+        </div>
+      </div>
+      <div class="header-separator-line"></div>
+
+      <div class="content-area">
+        <aside class="sidebar-menu">
+          <div
+            class="menu-section has-submenu"
+            *ngFor="let section of menu; let i = index"
+          >
+            <div class="menu-header">
+              <div class="menu-title">{{ section.title }}</div>
+            </div>
+
+            <div
+              class="submenu-content"
+              #submenu
+              [style.maxHeight]="'none'"
+              style="padding-top: 5px;"
+            >
+              <div class="submenu-item" *ngFor="let item of section.items">
+                <div class="submenu-header" (click)="toggleSubmenu(item)">
+                  <i
+                    *ngIf="item.children?.length"
+                    class="fas fa-chevron-right arrow-icon"
+                    [class.rotate]="item.expanded"
+                  ></i>
+                  <span class="submenu-label">{{ item.label }}</span>
+                </div>
+
+                <div
+                  class="submenu-children"
+                  [style.maxHeight]="
+                    item.expanded ? (item.children.length * 48) + 'px' : '0px'
+                  "
+                >
+                  <div class="submenu-child" *ngFor="let child of item.children">
+                    <a
+                      class="nav-link"
+                      [routerLink]="child.url"
+                      routerLinkActive="active-link"
+                    >
+                      {{ child.label }}
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <main class="main-content">
+          <router-outlet></router-outlet>
+        </main>
+      </div>
+    </div>
+  </div>
+</div>

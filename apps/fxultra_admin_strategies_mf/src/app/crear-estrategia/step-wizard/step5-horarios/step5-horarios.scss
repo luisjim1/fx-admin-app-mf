@@ -1,0 +1,458 @@
+/* ===== Contenedor ===== */
+.horarios-container {
+  background: #fff;
+  border-radius: 8px;
+  padding: 0;
+  font-family: 'Roboto', sans-serif;
+  position: relative;
+}
+
+.titulo {
+  font-size: 16px;
+  font-weight: 400;
+  color: #000;
+  margin-bottom: 12px;
+}
+
+/* ===== Acciones superiores ===== */
+.acciones-superiores {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 12px;
+}
+
+.btn-insertar {
+  width: auto;
+  height: 32px;
+  border-radius: 100px;
+  padding: 6px 14px;
+  background: #0098DD;
+  color: #fff;
+  font-family: 'Raleway', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  &:hover,
+  &:focus {
+    background: #0077AA;
+  }
+}
+
+.eliminar-todos {
+  font-family: 'Raleway', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: #0098DD;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  transition: color 0.2s;
+  &:hover,
+  &:focus {
+    text-decoration: underline;
+    color: #0077AA;
+  }
+}
+
+/* ===== Error arriba de la tabla ===== */
+.error-wrapper {
+  min-height: 24px;
+  margin-bottom: 6px;
+}
+
+.error-msg {
+  color: #D22419;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ===== Tabla ===== */
+.tabla-wrapper {
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  width: 317px;
+  box-shadow:
+    0 -1px 0 rgba(17, 17, 17, 0.25),
+    -1px 0 0 rgba(0, 0, 0, 0.25);
+}
+
+.tabla-header {
+  background-color: #001865;
+  color: #fff;
+  font-family: 'Raleway', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 120%;
+  letter-spacing: 0;
+  vertical-align: middle;
+  padding: 0 12px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+.tabla-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.fila {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #ddd;
+  height: 40px;
+
+  &:nth-child(odd) {
+    background-color: #FFFFFF;
+  }
+  &:nth-child(even) {
+    background-color: #F3F3F3;
+  }
+}
+
+.col-hora {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 239px;
+  padding: 0 8px;
+}
+
+.col-hora input[type="text"] {
+  width: 70px;
+  height: 28px;
+  padding: 4px;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 120%;
+  letter-spacing: 0;
+  vertical-align: middle;
+  color: #000;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background-color: transparent;
+  text-align: center;
+  outline: none;
+}
+
+.col-hora input.editando {
+  border: 1px solid #00000080;
+  background-color: #fff;
+}
+
+.col-flecha {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin: 0 8px;
+}
+
+.col-flecha i {
+  font-size: 16px;
+  color: #1C1B1F;
+}
+
+/* ===== Acciones por fila ===== */
+.col-acciones {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  align-items: center;
+  width: 78px;
+  border-left: 1px solid #ddd;
+  position: relative;
+}
+
+.icon-btn {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #000;
+}
+
+.icon-btn i {
+  font-size: 14px;
+  color: #001865; /* azul unificado */
+}
+
+.icon-btn:disabled {
+  color: #ccc;
+  cursor: not-allowed;
+}
+
+/* Tooltip */
+.tooltip {
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #3A4A63;
+  color: #FFFFFF;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 100%;
+  padding: 6px 9px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  min-width: 102px;
+  text-align: center;
+}
+
+.icon-btn:hover .tooltip {
+  opacity: 1;
+}
+
+/* ===== Info azul ===== */
+.info-msg {
+  background: #E6F2FF;
+  width: 525px;
+  height: 50px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  margin-bottom: 18px;
+  box-sizing: border-box;
+}
+
+.icon-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.icon-info svg {
+  width: 16px;
+  height: 16px;
+}
+
+.info-msg b {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: #002E9D;
+}
+
+.info-msg span {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  color: #000;
+  line-height: 120%;
+}
+
+/* ===== Acciones inferiores ===== */
+.acciones {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  margin-top: 18px;
+  margin-bottom: 8px;
+}
+
+.btn-principal {
+  width: 207.5px;
+  height: 42px;
+  border-radius: 100px;
+  padding: 12px;
+  background: #0098DD;
+  color: #fff;
+  font-family: 'Raleway', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  &:hover,
+  &:focus {
+    background: #0077AA;
+  }
+}
+
+.descartar-cambios {
+  font-family: 'Raleway', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: #0098DD;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  transition: color 0.2s;
+  &:hover,
+  &:focus {
+    text-decoration: underline;
+    color: #0077AA;
+  }
+}
+
+.progreso {
+  margin-top: 18px;
+  padding: 4px 14px 4px 14px;
+  display: inline-block;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  color: #565769;
+}
+
+/* ===== Modal de confirmación eliminar ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px 30px;
+  width: 480px; /* más ancho */
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  word-wrap: break-word;
+}
+
+.modal-content h3 {
+  font-family: 'Raleway', sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  color: #001865;
+  margin-bottom: 12px;
+}
+
+.modal-content p {
+  font-family: 'Roboto', sans-serif;
+  font-size: 16px;
+  color: #000;
+  margin-bottom: 20px;
+  line-height: 1.4;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.btn-cancelar {
+  font-family: 'Raleway', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0098DD;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-confirmar {
+  width: auto;
+  height: 32px;
+  border-radius: 100px;
+  padding: 6px 14px;
+  background: #0098DD;
+  color: #fff;
+  font-family: 'Raleway', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  &:hover,
+  &:focus {
+    background: #0077AA;
+  }
+}
+
+/* ===== Responsivo modal confirmación ===== */
+@media (max-width: 500px) {
+  .modal-content {
+    width: 90%;
+    padding: 16px 20px;
+  }
+
+  .modal-content p {
+    font-size: 15px;
+  }
+}
+
+/* ===== Iconos SVG en acciones ===== */
+.icon-btn svg {
+  width: 24px;
+  height: 24px;
+  color: #001865; /* azul unificado */
+}
+
+.icon-btn:disabled svg {
+  color: #ccc;
+}
+
+/* ===== Modal OK pequeño (unificado) ===== */
+.modal-ok{
+  width: 326px; /* unificado */
+  background:#fff;
+  border-radius:12px;
+  box-shadow:0 8px 24px rgba(0,0,0,.25);
+  padding: 20px 16px 14px;
+  position: relative;
+  text-align: center;
+  font-family:'Roboto',sans-serif;
+}
+
+.modal-ok__title{
+  font-size:16px; /* unificado */
+  font-weight:700;
+  color:#0098DD;
+  margin: 6px 0 10px 0;
+  text-align: center;
+}
+
+.modal-ok__btn{
+  width:128px;
+  height:32px;
+  padding:6px 14px;
+  border-radius:100px;
+  font-size:12px;
+}
+
+.modal-ok__close{
+  position:absolute;
+  top:8px; right:8px;
+  width:32px; height:32px;
+  border:0; background:transparent; color:#0098DD;
+  cursor:pointer; line-height:1; font-size:20px;
+}

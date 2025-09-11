@@ -1,0 +1,112 @@
+<div class="horarios-container">
+  <div class="titulo">
+    Configura los horarios operativos para los pares de divisas seleccionados previamente
+  </div>
+
+  <!-- Botones superiores -->
+  <div class="acciones-superiores">
+    <button class="btn-insertar" (click)="insertarHorario()">Insertar horario</button>
+    <span class="eliminar-todos" (click)="abrirModal('todos')">Eliminar todos los registros</span>
+  </div>
+
+  <!-- Error arriba de la tabla -->
+  <div class="error-wrapper">
+    <div *ngIf="errorMsg" class="error-msg">
+      <i class="fas fa-exclamation-circle"></i>
+      <span>{{ errorMsg }}</span>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="tabla-wrapper">
+    <div class="tabla-header">Horarios operativos</div>
+    <div class="tabla-body">
+      <div class="fila" *ngFor="let horario of horarios; let i = index">
+        <div class="col-hora">
+          <span>Inicia</span>
+          <input
+            type="text"
+            maxlength="5"
+            [value]="horario.inicio"
+            [readonly]="!horario.editando"
+            (focus)="onFocusInput(i, 'inicio')"
+            (input)="formatearHora(i, 'inicio', $event)"
+            [class.editando]="horario.editando">
+        </div>
+        <div class="col-flecha">
+          <i class="fas fa-arrow-right"></i>
+        </div>
+        <div class="col-hora">
+          <input
+            type="text"
+            maxlength="5"
+            [value]="horario.fin"
+            [readonly]="!horario.editando"
+            (focus)="onFocusInput(i, 'fin')"
+            (input)="formatearHora(i, 'fin', $event)"
+            [class.editando]="horario.editando">
+        </div>
+        <div class="col-acciones">
+          <button class="icon-btn" (click)="editarHorario(i)" *ngIf="!horario.editando">
+            <i class="fa-solid fa-pen-to-square"></i>
+            <span class="tooltip">Edita registro</span>
+          </button>
+          <button class="icon-btn guardar" (click)="guardarHorario(i)" *ngIf="horario.editando">
+            <i class="fas fa-save"></i>
+            <span class="tooltip">Guarda registro</span>
+          </button>
+          <button class="icon-btn eliminar" (click)="abrirModal('individual', i)" [disabled]="i === 0">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            <span class="tooltip" *ngIf="i !== 0">Elimina registro</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Info -->
+  <div class="info-msg">
+    <span class="icon-info">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="#002E9D" stroke-width="2"/>
+        <line x1="12" y1="8" x2="12" y2="8" stroke="#002E9D" stroke-width="2" stroke-linecap="round"/>
+        <line x1="12" y1="11" x2="12" y2="16" stroke="#002E9D" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </span>
+    <span>
+      <b>La estrategia debe cumplir con 24h operativas</b>, el sistema ajusta automáticamente los valores de forma incremental / secuencial
+    </span>
+  </div>
+
+  <!-- Acciones inferiores -->
+  <div class="acciones">
+    <button class="btn-principal" (click)="aplicarConfiguracion()">Aplicar configuración</button>
+    <span class="descartar-cambios" (click)="reestablecer()">Reestablecer</span>
+  </div>
+
+  <div class="progreso">Paso 5 de 7</div>
+</div>
+
+<!-- Modal CONFIRMACIÓN eliminar -->
+<div class="modal-overlay" *ngIf="mostrarModal">
+  <div class="modal-content">
+    <h3>Eliminar registro</h3>
+    <p>¿Estas seguro de eliminar el registro de horario en la estrategia?</p>
+    <div class="modal-buttons">
+      <button class="btn-cancelar" (click)="cerrarModal()">Cancelar</button>
+      <button class="btn-confirmar" (click)="confirmarEliminacion()">Si, eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal OK pequeño -->
+<div class="modal-overlay" *ngIf="mostrarModalOk" (click)="cerrarModalOk()">
+  <div class="modal-ok">
+    <button class="modal-ok__close" (click)="cerrarModalOk(); $event.stopPropagation()" aria-label="Cerrar" title="Cerrar">×</button>
+    <div class="modal-ok__title">Datos actualizados exitosamente</div>
+    <button class="btn-principal modal-ok__btn" (click)="cerrarModalOk()">Aceptar</button>
+  </div>
+</div>

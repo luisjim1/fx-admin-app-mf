@@ -1,0 +1,643 @@
+/* =========================
+   spreads.component.scss
+   ========================= */
+/* spreads.component.scss — COMPLETO (arreglo fino de borde del header) */
+.spreads-container {
+  background: #fff;
+  border-radius: 8px;
+  padding: 0;
+  font-family: 'Roboto', sans-serif;
+}
+
+/* Título */
+.titulo {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 100%;
+  color: #000;
+  margin-bottom: 16px; /* +espacio */
+}
+
+/* Switch superior (texto a la izq, switch a la der; deshabilitado) */
+.controles-superiores {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px; /* +aire con checkbox global */
+  opacity: 0.5;
+  pointer-events: none;
+}
+.switch-label {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 100%;
+  color: #000;
+}
+.switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  display: inline-block;
+}
+.switch input { display: none; }
+.slider {
+  position: absolute; inset: 0;
+  background: #C8CBD0;
+  border-radius: 999px;
+  transition: all .2s;
+}
+.slider::before {
+  content: '';
+  position: absolute; top: 3px; left: 3px;
+  width: 18px; height: 18px;
+  background: #fff; border-radius: 50%;
+  transition: all .2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,.2);
+}
+.switch input:checked + .slider { background: #0098DD; }
+.switch input:checked + .slider::before { transform: translateX(20px); }
+.switch input:disabled + .slider { background: #E1E3E6; cursor: not-allowed; }
+.switch input:disabled + .slider::before { background: #F5F6F7; }
+
+/* Checkbox global — mismo estilo que los de la tabla */
+.check-todos {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin: 8px 0 16px;
+  padding-left: 24px;
+  cursor: pointer;
+  user-select: none;
+
+  .check-todos-label {
+    font-family: 'Roboto', sans-serif;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 120%;
+    color: #000;
+  }
+
+  .custom-checkbox {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    opacity: 0;
+    z-index: 2;
+    cursor: pointer;
+  }
+
+  .checkbox-custom {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    border-radius: 2px;
+    border: 1px solid #00000080;
+    background: #fff;
+    box-sizing: border-box;
+  }
+
+  .custom-checkbox:checked + .checkbox-custom {
+    background: #001865;
+    border: 1px solid #001865;
+  }
+  .custom-checkbox:checked + .checkbox-custom::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1.5px;
+    width: 6px;
+    height: 11px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    border-radius: 0 0 1px 0;
+    transform: rotate(45deg);
+    display: block;
+  }
+}
+
+/* ===== Tabla principal ===== */
+.tabla-wrapper {
+  border: 1px solid #ccc;                 /* borde exterior */
+  border-radius: 4px;
+  box-shadow:
+    0 -1px 0 rgba(17, 17, 17, 0.25),
+    -1px 0 0 rgba(0, 0, 0, 0.25);         /* relieve arriba/izq */
+  display: block;
+  width: 689px;                            /* 687 + 2 de bordes */
+  overflow: visible;                       /* <<< FIX: permitir que el tooltip salga */
+}
+
+/* Evita micro-gaps */
+.tabla-spreads,
+.tabla-spreads * { box-sizing: border-box; }
+
+.tabla-spreads {
+  border-collapse: separate;               /* mantiene header “limpio” */
+  border-spacing: 0;
+  table-layout: fixed;
+  width: 100%;
+  overflow: visible;                        /* <<< FIX adicional defensivo */
+}
+
+/* Header */
+.tabla-spreads thead {                     /* ← NUEVO: borde inferior uniforme */
+  border-bottom: 1px solid #ddd;
+  overflow: visible;                        /* <<< FIX: no cortar tooltips */
+}
+
+.tabla-spreads thead th {
+  background: #001865;
+  color: #fff;
+  height: 40px;
+  padding: 0 12px;
+  font-family: 'Raleway', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 120%;
+  vertical-align: middle;
+  text-align: left;
+  border: 0;                               /* sin separadores verticales */
+  overflow: visible;                        /* <<< FIX: no cortar tooltips */
+}
+.tabla-spreads thead th.col-check { width: 36px; padding: 0; }
+.tabla-spreads thead th.col-par { width: 85px; }
+.tabla-spreads thead th.col-horarios { width: 176px; }
+.tabla-spreads thead th.col-spread { width: 125px; }
+.tabla-spreads thead th.col-edit { width: 44px; padding: 0; }
+
+.tabla-spreads thead th .sub {
+  display: block;
+  font-family: 'Raleway', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 120%;
+  color: #fff;
+}
+
+/* Body */
+.tabla-spreads tbody tr:nth-child(odd) { background: #FFFFFF; }
+.tabla-spreads tbody tr:nth-child(even) { background: #F3F3F3; }
+.tabla-spreads tbody tr { border-bottom: 1px solid #ddd; }
+.tabla-spreads tbody tr:last-child { border-bottom: 0; }
+
+.tabla-spreads tbody td {
+  padding: 0 12px;
+  height: 40px;
+  vertical-align: middle;
+  font-family: 'Raleway', sans-serif;
+  font-size: 14px;
+  color: #1A1C1E;
+  border-left: 1px solid #ddd;             /* separadores verticales */
+  overflow: visible;                        /* <<< FIX: no cortar tooltips */
+}
+.tabla-spreads tbody td:first-child { border-left: none; }
+
+.col-check { width: 36px; text-align: center; }
+.col-par   { width: 85px; font-weight: 700; }
+
+.col-horarios { width: 176px; text-align: center; }
+.col-horarios .hora {
+  display: inline-block;
+  min-width: 48px;
+  text-align: center;
+  vertical-align: middle;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 120%;
+  letter-spacing: 0;
+}
+.col-horarios .flecha {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 8px;
+  color: #1C1B1F;
+  vertical-align: middle;
+}
+
+.col-spread {
+  width: 125px;
+  text-align: right;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 120%;
+}
+.col-edit { width: 44px; text-align: center; overflow: visible; } /* <<< FIX */
+
+.valor-wrap .valor {
+  display: inline-block;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 120%;
+  text-align: right;
+}
+
+/* Inputs tabla principal */
+.input-spread {
+  width: 100%;
+  height: 32px;
+  border: 1px solid #C8CBD0;
+  border-radius: 4px;
+  padding: 0 8px;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 120%;
+  color: #000;
+  background: #fff;
+  outline: none;
+  text-align: right;
+  transition: border-color .2s, box-shadow .2s;
+}
+.input-spread:focus,
+.input-spread:focus-visible {
+  border-color: #002E9D;
+  box-shadow: 0 0 0 1px #002E9D;
+}
+.input-spread::placeholder { color: #9AA0A6; }
+
+/* ===== Checkbox del step 2 reutilizado ===== */
+.par-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  min-height: 16px;
+  padding: 0;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+.par-checkbox .custom-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  cursor: pointer;
+}
+.par-checkbox .checkbox-custom {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  border: 1px solid #00000080;
+  background: #fff;
+  display: inline-block;
+  position: relative;
+  transition: border 0.2s, background 0.2s;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+.par-checkbox .custom-checkbox:checked + .checkbox-custom {
+  background: #001865;
+  border: 1px solid #001865;
+}
+.par-checkbox .custom-checkbox:checked + .checkbox-custom::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1.5px;
+  width: 6px;
+  height: 11px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  border-radius: 0 0 1px 0;
+  transform: rotate(45deg);
+  display: block;
+}
+.par-checkbox--tabla { width: 100%; }
+
+/* ===== Botón editar/guardar ===== */
+.icon-btn { position: relative; background: none; border: none; cursor: pointer; color: #000; }
+.icon-btn i { font-size: 16px; color: #001865; } /* azul unificado */
+.icon-btn:disabled { color: #ccc; cursor: not-allowed; }
+
+/* <<< FIX TOOLTIP: a la derecha y con z-index alto, sin cortar */
+.icon-btn .tooltip {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 8px);          /* mover a la derecha del botón */
+  transform: translateY(-50%);     /* centrar verticalmente */
+  right: auto;
+  bottom: auto;                    /* anulamos el bottom:120% anterior */
+  background: #3A4A63;
+  color: #fff;
+  font-family: 'Roboto', sans-serif;
+  font-size: 12px;
+  padding: 6px 9px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s;
+  z-index: 100000;                 /* por encima de la tabla */
+}
+.icon-btn:hover .tooltip { opacity: 1; }
+
+/* Acciones inferiores */
+.acciones {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-top: 16px;
+  gap: 18px;
+}
+.btn-principal {
+  width: 207.5px;
+  height: 42px;
+  border-radius: 100px;
+  padding: 12px;
+  background: #0098DD;
+  color: #fff;
+  font-family: 'Raleway', sans-serif; font-weight: 700; font-size: 14px;
+  border: none;
+  cursor: pointer;
+  transition: background .2s;
+}
+.btn-principal:hover, .btn-principal:focus { background: #0077AA; }
+
+/* === Progreso abajo (mismo estilo que tu ejemplo) === */
+.subinfo-row { margin-top: 10px; }
+.progreso {
+  font-family: 'Roboto', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: #565769;
+}
+
+/* ===== MODAL (namespaced para no afectar la tabla) ===== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.4);
+  z-index: 1000;
+}
+.modal-contenedor {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 326px;             /* ← ancho exacto */
+  height: 328px;            /* ← alto SIN JPY */
+  max-width: 95vw;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  z-index: 1001;
+  overflow: hidden;
+  font-family: 'Roboto', sans-serif;
+}
+.modal-contenedor.con-jpy { height: 420px; }  /* ← alto CON JPY */
+
+.modal-body { padding: 16px; }
+.modal-titulo {
+  text-align: center;
+  font-family: 'Raleway', sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 120%;
+  color: #0098DD;
+  margin-bottom: 8px;
+  margin-top: 20px;
+}
+.modal-desc {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 100%;
+  color: #000;
+  margin: 0 0 12px 0;
+}
+
+/* Botón cerrar (SVG inline, 32x32 hit-area) */
+.modal-cerrar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1002;
+
+  /* defensas contra estilos globales que encojan el ícono */
+  line-height: 0;
+  font-size: 0;
+  color: #0098DD;           /* el <path> usa currentColor */
+}
+.modal-cerrar__icon {
+  width: 20px;              /* ⬅ ícono más grande */
+  height: 20px;
+  display: block;
+  pointer-events: none;
+}
+.modal-cerrar:focus-visible {
+  outline: 2px solid rgba(0,152,221,.35);
+  outline-offset: 2px;
+}
+.modal-cerrar:hover { opacity: .9; }
+
+/* ===== Tabla del modal ===== */
+.modal-tabla-wrapper {
+  width: 278px;             /* 139 + 139 */
+  margin: 0 auto 14px auto; /* centrado + aire */
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.modal-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.modal-tabla thead th {
+  background: #001865;
+  color: #fff;
+  height: 40px;             /* altura pedida */
+  padding: 0 8px;
+  text-align: left;
+  font-family: 'Raleway', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 120%;
+  vertical-align: middle;
+  border: 0;                /* SIN divisores en header */
+  width: 139px;             /* ancho por columna */
+}
+.modal-tabla thead th .sub {
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+  color: #fff;
+}
+
+/* Divisor vertical SOLO en el cuerpo */
+.modal-tabla tbody td {
+  background: #fff;
+  height: 40px;
+  padding: 0 8px;
+  vertical-align: middle;
+  border-top: 1px solid #ddd; /* línea horizontal */
+  width: 139px;
+}
+.modal-tabla tbody td + td { border-left: 1px solid #ddd; }
+
+/* Inputs del modal */
+.input-modal {
+  width: 100%;
+  height: 40px;
+  border: 1px solid transparent;   /* borde NO visible por defecto */
+  border-radius: 4px;
+  padding: 0 8px;
+  font-family: 'Roboto', sans-serif;
+  font-size: 14px;
+  text-align: right;
+  color: #000;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color .2s;
+}
+.input-modal:focus,
+.input-modal:focus-visible {
+  border-color: #002E9D;            /* solo borde azul en focus */
+  box-shadow: none;
+}
+
+/* Switch JPY (alineado a caja de 278px) */
+.switch-jpy {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px auto 14px;
+  width: 278px;
+}
+.switch-jpy-label {
+  font-family: 'Roboto', sans-serif;
+  font-size: 16px;
+  color: #000;
+}
+
+/* Footer del modal */
+.modal-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 6px;
+  padding-bottom: 8px;
+}
+.btn-modal { width: 180px; font-size: 14px; }
+
+/* ====== VALIDACIÓN Y UI EXTRA ====== */
+.spread-box{
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.spread-box.error{
+  border: 1px solid #D22419;
+  border-radius: 4px;
+  padding: 2px;
+}
+.spread-box.disabled{
+  opacity: 0.5;
+  pointer-events: none;
+}
+.input-spread.error{
+  border: 1px solid #D22419 !important;
+  box-shadow: none !important;
+}
+.alerta-wrapper { min-height: 26px; margin-left: 0; margin-top: 10px; margin-bottom: 0; }
+.mensaje-error {
+  display: flex; align-items: center;
+  font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 14px; color: #D22419;
+}
+.mensaje-error i { margin-right: 8px; font-size: 16px; color: #D22419; }
+.restablecer {
+  color:#0098DD; font-family:'Raleway',sans-serif; font-weight:700; font-size:15px;
+  cursor:pointer; margin-left:10px; text-decoration:none;
+}
+.restablecer:hover, .restablecer:focus { text-decoration: underline; color:#0077AA; }
+.modal-footer--reset{
+  display: flex; justify-content: center; align-items: center;
+  gap: 18px; margin-top: 6px; padding-bottom: 8px;
+}
+.btn-cancel-link{
+  background: transparent; border: 0; padding: 0; margin: 0; cursor: pointer;
+  color:#0098DD; font-family:'Raleway',sans-serif; font-weight:700; font-size:15px;
+}
+.btn-cancel-link:hover, .btn-cancel-link:focus { text-decoration: underline; color:#0077AA; }
+
+/* ====== OVERRIDE DE TAMAÑO SOLO PARA EL MODAL DE RESET ====== */
+.modal-contenedor.modal-reset{
+  width: 569px !important;
+  height: 185px !important;
+  max-width: none;
+  border-radius: 12px;
+}
+
+/* ===== Modal OK pequeño (unificado) ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1002;
+}
+.modal-ok{
+  width: 326px; /* unificado */
+  background:#fff;
+  border-radius:12px;
+  box-shadow:0 8px 24px rgba(0,0,0,.25);
+  padding: 20px 16px 14px;
+  position: relative;
+  text-align: center;
+  font-family:'Roboto',sans-serif;
+}
+.modal-ok__title{
+  font-size:16px; /* unificado */
+  font-weight:700;
+  color:#0098DD;
+  margin: 6px 0 10px 0;
+}
+.modal-ok__btn{
+  width:128px;
+  height:32px;
+  padding:6px 14px;
+  border-radius:100px;
+  font-size:12px;
+}
+.modal-ok__close{
+  position:absolute;
+  top:8px; right:8px;
+  width:32px; height:32px;
+  border:0; background:transparent; color:#0098DD;
+  cursor:pointer; line-height:1; font-size:20px;
+}

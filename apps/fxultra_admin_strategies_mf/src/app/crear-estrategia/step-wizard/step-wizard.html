@@ -1,0 +1,61 @@
+<!-- ===== Título del wizard ===== -->
+<div class="wizard-title">Crear estrategia</div>
+
+<!-- ===== Stepper horizontal ===== -->
+<div class="stepper-horizontal">
+  <div class="stepper-track">
+    <div
+      class="stepper-step"
+      *ngFor="let step of steps; let i = index"
+      [class.active]="i === currentStepIndex"
+      [class.completed]="step.completed"
+      [class.pending]="step.sublabel === 'Pendiente'">
+      <div
+        class="circle"
+        [ngClass]="{
+          'completed': step.completed,
+          'active': i === currentStepIndex && !step.completed,
+          'pending': !step.completed && i !== currentStepIndex
+        }">
+        <ng-container *ngIf="step.completed; else notCompleted">
+          <i class="fas fa-check custom-check"></i>
+        </ng-container>
+        <ng-template #notCompleted>
+          <span *ngIf="i === currentStepIndex" class="circle-dot"></span>
+        </ng-template>
+      </div>
+      <div
+        class="bar"
+        *ngIf="i < steps.length - 1"
+        [ngClass]="{ 'bar-blue': i < currentStepIndex, 'bar-gray': i >= currentStepIndex }">
+      </div>
+    </div>
+  </div>
+
+  <div class="stepper-labels">
+    <div class="stepper-label-cell" *ngFor="let step of steps; let i = index">
+      <div class="label">
+        {{ step.label }}
+        <i
+          class="fa-solid fa-pen-to-square edit-icon"
+          [class.enabled]="step.completed"
+          [class.disabled]="!step.completed"
+          *ngIf="step.label && i !== steps.length - 1"
+          (click)="editarPaso($event, i)"
+          [style.cursor]="step.completed ? 'pointer' : 'not-allowed'"
+          [attr.tabindex]="step.completed ? 0 : -1"
+          title="Editar">
+        </i>
+      </div>
+      <div
+        class="sublabel"
+        [ngClass]="{
+          'pending': step.sublabel === 'Pendiente',
+          'active': step.sublabel === 'En proceso',
+          'completed': step.sublabel === 'Completado'
+        }">
+        {{ step.sublabel }}
+      </div>
+    </div>
+  </div>
+</div>

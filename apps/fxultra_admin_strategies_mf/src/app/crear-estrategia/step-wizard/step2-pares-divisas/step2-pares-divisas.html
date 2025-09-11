@@ -1,0 +1,371 @@
+<!-- pares-divisas.component.html -->
+<div class="datos-generales-container">
+  <!-- ===== Sección: Título ===== -->
+  <div class="pares-titulo">
+    Selecciona los instrumentos disponibles por la Mesa de cambios, y captura el monto máximo por operación.
+  </div>
+
+  <!-- ===== Sección: Buscador / Dropdown ===== -->
+  <div class="buscador-row">
+    <label class="label-buscar">Elige las divisas a operar:</label>
+
+    <div class="input-buscar-wrapper" (click)="$event.stopPropagation()">
+      <span class="svg-lupa">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <circle cx="10" cy="10" r="8" stroke="#2e3a59" stroke-width="1.3"></circle>
+          <line x1="16" y1="16" x2="21" y2="21" stroke="#2e3a59" stroke-width="1.3" stroke-linecap="round"></line>
+        </svg>
+      </span>
+      <input
+        class="input-buscar"
+        type="text"
+        placeholder="Buscar par"
+        [(ngModel)]="busqueda"
+        (focus)="abrirDropdown()"
+        (input)="onBuscarChange()"
+        (keydown.enter)="onEnterSeleccion()"
+        (keydown.arrowDown)="moverFocus(1)"
+        (keydown.arrowUp)="moverFocus(-1)"
+        (blur)="cerrarDropdownConRetardo()"
+      />
+
+      <div class="dropdown" *ngIf="dropdownAbierto && opcionesFiltradas.length">
+        <button
+          type="button"
+          class="dropdown-item"
+          *ngFor="let op of opcionesFiltradas; let i = index"
+          [class.active]="i === focoIndice"
+          [disabled]="estaSeleccionado(op)"
+          (mousedown)="seleccionarPar(op)"
+        >
+          {{ op }}
+        </button>
+      </div>
+
+      <div class="dropdown dropdown--vacio" *ngIf="dropdownAbierto && !opcionesFiltradas.length">
+        <div class="dropdown-empty">Sin resultados</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Sección: Checkbox masivo (abre modal) ===== -->
+  <label class="check-todos" (click)="$event.stopPropagation()">
+    <input
+      type="checkbox"
+      class="custom-checkbox"
+      [checked]="masivoActivo"
+      (change)="abrirModalMasivo($event)"
+    />
+    <span class="checkbox-custom"></span>
+    <span class="check-todos-label">Mismo monto para todos los pares de divisas</span>
+  </label>
+
+  <!-- ===== Sección: Tabla ===== -->
+  <div class="tabla-wrapper">
+    <table class="tabla-pares" role="table">
+      <colgroup>
+        <col class="col-check" />
+        <col class="col-par" />
+        <col class="col-monto" />
+        <col class="col-acciones" />
+      </colgroup>
+
+      <thead>
+        <tr>
+          <th></th>
+          <th>Par</th>
+          <th>
+            Monto máximo<br />
+            <span class="sub">por operación</span>
+          </th>
+          <th></th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <!-- Estado: placeholder -->
+        <tr *ngIf="!seleccionados.length">
+          <td>
+            <label class="par-checkbox par-checkbox--tabla">
+              <input type="checkbox" class="custom-checkbox" disabled />
+              <span class="checkbox-custom"></span>
+            </label>
+          </td>
+          <td class="placeholder-par">Busca par</td>
+          <td>
+            <div class="monto-box">
+              <input class="monto-input" type="text" value="00.00" disabled />
+              <span class="moneda-code"></span>
+            </div>
+          </td>
+          <td class="acciones-col"></td>
+        </tr>
+
+        <!-- Estado: filas reales -->
+        <tr *ngFor="let row of seleccionados; trackBy: trackPar">
+          <td>
+            <label class="par-checkbox par-checkbox--tabla">
+              <input
+                type="checkbox"
+                class="custom-checkbox"
+                [(ngModel)]="row._selected"
+                (ngModelChange)="onSelectRowChange()"
+              />
+              <span class="checkbox-custom"></span>
+            </label>
+          </td>
+
+          <td>{{ row.nombre }}</td>
+
+          <td>
+            <div
+              class="monto-box"
+              [class.error]="!montoValido(row.montoMax)"
+              [class.editing]="row._isEditing"
+              (click)="activarEdicionSiError(row, $event)"
+            >
+              <input
+                class="monto-input"
+                type="text"
+                [readOnly]="!row._isEditing"
+                [value]="row._edicion ?? formatearVisual(row.montoMax)"
+                (focus)="onFocusMonto(row, $event)"
+                (input)="onInputMonto($event, row)"
+                (blur)="onBlurMonto(row)"
+                (keydown.enter)="guardarEdicion(row); $event.preventDefault()"
+                (keydown.escape)="cancelarEdicion(row, $event)"
+                (paste)="$event.preventDefault()"
+                placeholder="00.00"
+                inputmode="decimal"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <span class="moneda-code">{{ baseDe(row.nombre) }}</span>
+            </div>
+          </td>
+
+          <td class="acciones-col">
+            <button class="icon-btn" *ngIf="!row._isEditing" (click)="iniciarEdicion(row)">
+              <i class="fa-solid fa-pen-to-square"></i>
+              <span class="tooltip">Edita registro</span>
+            </button>
+            <button class="icon-btn guardar" *ngIf="row._isEditing" (click)="guardarEdicion(row)">
+              <i class="fa-solid fa-floppy-disk"></i>
+              <span class="tooltip">Guardar</span>
+            </button>
+            <button class="icon-btn eliminar" (click)="confirmarEliminar(row)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"
+                   fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+              <span class="tooltip">Elimina registro</span>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===== Sección: Mensajes auxiliares ===== -->
+  <div class="alerta-wrapper">
+    <div *ngFor="let m of mensajesValidacion" class="mensaje-error">
+      <i class="fas fa-exclamation-circle"></i>
+      <span class="strong">{{ m }}</span>
+    </div>
+
+    <div class="mensaje-info" *ngIf="mostrarAlertaJPY">
+      <span class="strong azul-alerta">Si seleccionas JPY/MXN</span>
+      <span class="resto-alerta"> la fecha de liquidación de este par es de 48h.</span>
+    </div>
+
+    <div class="mensaje-aviso info">
+      <i class="fas fa-info-circle"></i>
+      <span class="strong azul-texto">
+        Monto mínimo a partir de 1.00 unidad de moneda, aplica en contravalor.
+      </span>
+    </div>
+  </div>
+
+  <!-- ===== Sección: Acciones ===== -->
+  <div class="acciones">
+    <button class="btn-principal" type="button" (click)="aplicarConfiguracion()">
+      Aplicar configuración
+    </button>
+    <span class="restablecer" (click)="abrirModalRestablecer()">Restablecer</span>
+  </div>
+
+  <div class="subinfo-row">
+    <div class="info-col">
+      <span class="simbolos-disponibles">{{ paresDisponibles }} símbolos disponibles</span>
+      <span class="progreso datos-generales-progreso">Paso 2 de 7</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Sección: Modal MASIVO ===== -->
+<div class="modal-backdrop" *ngIf="mostrarModalMasivo" (click)="cerrarModalMasivo(false)"></div>
+<div
+  class="modal-contenedor"
+  *ngIf="mostrarModalMasivo"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Monto máximo"
+  (click)="$event.stopPropagation()"
+  style="width: 326px;"
+>
+  <button
+    class="modal-cerrar"
+    type="button"
+    (click)="cerrarModalMasivo(false); $event.stopPropagation()"
+    aria-label="Cerrar"
+    title="Cerrar"
+  >
+    <svg class="modal-cerrar__icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+    </svg>
+  </button>
+
+  <div class="modal-body">
+    <div class="modal-titulo">Monto máximo</div>
+    <p class="modal-desc">
+      Este valor se aplicará a {{ aplicaSoloSeleccionadas ? 'las divisas seleccionadas' : 'todas las divisas seleccionadas' }}
+    </p>
+
+    <div class="modal-input-wrap" [class.error]="!!modalErrorMsg || !modalMontoValido">
+      <input
+        class="monto-input modal-input"
+        type="text"
+        [value]="modalEdicion ?? '0.00'"
+        (focus)="onFocusModal($event)"
+        (input)="onInputModal($event)"
+        (blur)="onBlurModal()"
+        (keydown.enter)="aplicarModalMasivo(); $event.preventDefault()"
+        (keydown.escape)="cerrarModalMasivo(false)"
+        (paste)="$event.preventDefault()"
+        placeholder="00.00"
+        inputmode="decimal"
+        autocomplete="off"
+        spellcheck="false"
+      />
+    </div>
+
+    <div class="modal-errores" *ngIf="modalErrorMsg">
+      <div class="mensaje-error">
+        <i class="fas fa-exclamation-circle"></i>
+        <span class="strong">{{ modalErrorMsg }}</span>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-principal btn-modal" (click)="aplicarModalMasivo()">
+        Aplicar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Sección: Modal OK pequeño (edición exitosa) ===== -->
+<div class="modal-backdrop" *ngIf="mostrarModalOk" (click)="cerrarModalOk()"></div>
+<div
+  class="modal-contenedor modal-ok-peq"
+  *ngIf="mostrarModalOk"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Datos actualizados"
+  (click)="$event.stopPropagation()"
+>
+  <button
+    class="modal-cerrar"
+    type="button"
+    (click)="cerrarModalOk(); $event.stopPropagation()"
+    aria-label="Cerrar"
+    title="Cerrar"
+  >
+    <svg class="modal-cerrar__icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+    </svg>
+  </button>
+
+  <div class="modal-body modal-ok__body-peq">
+    <div class="modal-titulo modal-ok__titulo-peq">Datos actualizados exitosamente</div>
+    <div class="modal-footer">
+      <button class="btn-principal btn-modal btn-modal--peq" (click)="cerrarModalOk()">Aceptar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Sección: Modal RESTABLECER ===== -->
+<div class="modal-backdrop" *ngIf="mostrarModalRestablecer" (click)="cerrarModalRestablecer()"></div>
+<div
+  class="modal-contenedor modal-rest"
+  *ngIf="mostrarModalRestablecer"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Restablecer"
+  (click)="$event.stopPropagation()"
+>
+  <button
+    class="modal-cerrar"
+    type="button"
+    (click)="cerrarModalRestablecer(); $event.stopPropagation()"
+    aria-label="Cerrar"
+    title="Cerrar"
+  >
+    <svg class="modal-cerrar__icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+    </svg>
+  </button>
+
+  <div class="modal-body">
+    <div class="modal-titulo modal-rest__titulo">Restablecer valores</div>
+
+    <div class="modal-opciones">
+      <button class="btn-principal btn-modal" (click)="restablecerMontos()">Montos operativos</button>
+      <button class="btn-principal btn-modal" (click)="restablecerTodo()">Todos los registros</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Sección: Modal CONFIRMAR ELIMINACIÓN ===== -->
+<div class="modal-backdrop" *ngIf="mostrarModalConfirmDelete" (click)="cerrarModalConfirmDelete(false)"></div>
+<div
+  class="modal-contenedor modal-ok-peq"
+  *ngIf="mostrarModalConfirmDelete"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Confirmar eliminación"
+  (click)="$event.stopPropagation()"
+>
+  <button
+    class="modal-cerrar"
+    type="button"
+    (click)="cerrarModalConfirmDelete(false); $event.stopPropagation()"
+    aria-label="Cerrar"
+    title="Cerrar"
+  >
+    <svg class="modal-cerrar__icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+    </svg>
+  </button>
+
+  <div class="modal-body modal-ok__body-peq">
+    <div class="modal-titulo">Eliminar divisa</div>
+
+    <p class="modal-desc modal-confirm-delete__desc">
+      <ng-container *ngIf="esEliminacionIndividual; else pluralMsg">
+        ¿Estás seguro que deseas eliminar la divisa
+        <span class="divisa-strong">{{ nombreAEliminar }}</span>?
+      </ng-container>
+      <ng-template #pluralMsg>
+        ¿Estás seguro que deseas eliminar las divisas seleccionadas?
+      </ng-template>
+    </p>
+
+    <div class="modal-opciones modal-confirm-delete__opciones">
+      <button class="btn-texto" (click)="cerrarModalConfirmDelete(false)">No, regresar</button>
+      <button class="btn-texto" (click)="confirmarEliminarAceptado()">Sí, eliminar</button>
+    </div>
+  </div>
+</div>

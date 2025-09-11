@@ -1,0 +1,31 @@
+<div *ngIf="loading" class="d-flex justify-content-center align-items-center" style="height: 100vh;">
+  <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+  <span class="ms-2">Cargando...</span>
+</div>
+
+<div *ngIf="!loading && !isLoggedIn" id="login-content" class="d-flex flex-column" style="height: 100%;">
+  <div id="logo-content" class="text-center">
+    <img class="logo" src="/assets/branding/Logo_MONEX_Fondo_oscuro_2.png" alt="Monex" />
+  </div>
+
+  <div class="d-flex flex-grow-1 overflow-hidden">
+    <div class="left-half flex-fill"></div>
+
+    <div class="right-half d-flex flex-column justify-content-center align-items-center p-4">
+      <section class="form-login text-center mb-3">
+        <div class="description mb-2">Ingresa a tu cuenta</div>
+        <div class="title mb-3">Admin FX U</div>
+
+        <button class="btn-login btn btn-primary px-4 py-2 mb-4" (click)="login()">Iniciar sesión</button>
+      </section>
+
+      <img src="/assets/branding/Monex_shape.svg" alt="monex shape" class="monex-shape img-fluid" />
+    </div>
+  </div>
+
+  <!-- Footer SOLO para la pantalla de login (remoto) -->
+  <footer class="login-footer">
+    <div>Aviso de privacidad  |  Condusef |  Contáctanos  |  Centro de Atención 01-800-746-6639.</div>
+    <div>© Monex Grupo Financiero {{ currentYear }}</div>
+  </footer>
+</div>

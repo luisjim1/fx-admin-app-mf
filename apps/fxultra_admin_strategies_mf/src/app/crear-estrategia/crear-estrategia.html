@@ -1,0 +1,40 @@
+<!-- ===== Contenedor Wizard ===== -->
+<div class="wizard-container">
+  <app-step-wizard
+    [steps]="steps"
+    [currentStepIndex]="currentStep"
+    (stepSelected)="onStepSelected($event)">
+  </app-step-wizard>
+
+  <!-- ===== Contenido del paso (render vía rutas) ===== -->
+  <div class="step-content" *ngIf="renderSteps">
+    <router-outlet></router-outlet>
+  </div>
+</div>
+
+<!-- ===== Modal: estrategia en progreso ===== -->
+<div class="modal-backdrop" *ngIf="mostrarModalEstrategia"></div>
+<div
+  class="modal-contenedor modal-progreso"
+  *ngIf="mostrarModalEstrategia"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Estrategia en progreso"
+  (click)="$event.stopPropagation()"
+>
+  <div class="modal-body">
+    <div class="modal-titulo">Hay una creación de estrategia en proceso</div>
+    <p class="modal-desc" style="text-align:center">
+      ¿Deseas continuar editando la estrategia en progreso o comenzar una nueva?
+    </p>
+
+    <div class="modal-footer">
+      <button type="button" class="btn-secundario btn-modal" (click)="continuarEstrategiaGuardada()">
+        Continuar editando
+      </button>
+      <button class="btn-principal btn-modal" (click)="comenzarNuevaEstrategia()">
+        Comenzar nueva
+      </button>
+    </div>
+  </div>
+</div>

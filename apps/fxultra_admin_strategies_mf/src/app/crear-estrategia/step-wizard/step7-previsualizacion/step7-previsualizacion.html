@@ -1,0 +1,479 @@
+<!-- previsualizacion.component.html — COMPLETO -->
+
+<!-- ===== MARCO EXTERIOR ===== -->
+<div class="preview-shell">
+  <!-- ===== TÍTULO ===== -->
+  <h2 class="estrategia-titulo" id="titulo-estrategia">
+    {{ tituloEstrategia || 'Compra básica por horarios' }}
+  </h2>
+
+  <div class="estrategia-linea-gris"></div>
+
+  <!-- ===== DESCRIPCIÓN ===== -->
+  <p class="estrategia-desc">
+    {{ descripcionEstrategia || 'Estrategia base para operar con 2 horarios matutino y vespertino.' }}
+  </p>
+
+  <!-- ===== PANEL INTERIOR ===== -->
+  <div class="preview-container panel">
+    <div class="panel-titulo">Revisa que los datos estén correctos</div>
+
+    <!-- ===== CHECKBOX GLOBAL (MODAL) ===== -->
+    <div class="check-todos">
+      <input
+        id="chk-mismos-spreads"
+        type="checkbox"
+        class="custom-checkbox"
+        [checked]="mismosSpreadsTodos"
+        (change)="abrirModalMismosSpreads($event)"
+      />
+      <span class="checkbox-custom"></span>
+      <label class="check-todos-label" for="chk-mismos-spreads">
+        Mismos spreads todos los pares de divisas (excepto Yen japonés)
+      </label>
+    </div>
+
+    <!-- ===== TABLA PRINCIPAL ===== -->
+    <div class="tabla-wrapper">
+      <table class="tabla-preview" role="table">
+        <thead>
+          <tr>
+            <th class="col-check th-left"></th>
+            <th class="col-par th-left">Par</th>
+            <th class="col-sentido th-left">Sentido<br><span class="sub">Vista cliente</span></th>
+            <th class="col-fecha th-left">Fecha liquidación</th>
+
+            <!-- ===== COLUMNA: MONTO MÁXIMO ===== -->
+            <th class="col-monto th-left">
+              Monto máximo<br><span class="sub">por operación</span>
+            </th>
+
+            <th class="col-horarios th-left">Horarios operativos</th>
+            <th class="col-spread-v th-left">
+              Spread Venta<br><span class="sub">Monex entrega</span>
+            </th>
+            <th class="col-spread-c th-left">
+              Spread Compra<br><span class="sub">Monex recibe</span>
+            </th>
+            <th class="col-edit th-left"></th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <ng-container *ngFor="let g of grupos; let gi = index">
+            <tr *ngFor="let f of g.filas; let fi = index">
+              <td class="col-check">
+                <ng-container *ngIf="fi === 0 && g.nombre !== excluido">
+                  <label class="par-checkbox par-checkbox--tabla">
+                    <input
+                      [attr.id]="'par-' + gi"
+                      type="checkbox"
+                      class="custom-checkbox"
+                      [(ngModel)]="g.seleccionado"
+                      (ngModelChange)="onSelectRowModelChange($event)"
+                    />
+                    <span class="checkbox-custom"></span>
+                  </label>
+                </ng-container>
+              </td>
+
+              <td class="col-par">
+                <ng-container *ngIf="fi === 0">{{ g.nombre }}</ng-container>
+              </td>
+
+              <td class="col-sentido">
+                <ng-container *ngIf="fi === 0">{{ textoSentido(g.nombre) }}</ng-container>
+              </td>
+
+              <td class="col-fecha">
+                <ng-container *ngIf="fi === 0">{{ liquidacionPorPar[g.nombre] || 'Todas las fechas' }}</ng-container>
+              </td>
+
+              <!-- ===== COLUMNA: MONTO MÁXIMO ===== -->
+              <td class="col-monto">
+                <ng-container *ngIf="fi === 0">
+                  <span class="monto-valor">{{ formatoMonto(g.nombre) }}</span>
+                  <span class="monto-codigo">{{ baseDe(g.nombre) }}</span>
+                </ng-container>
+              </td>
+
+              <td class="col-horarios">
+                <span class="hora">{{ f.inicio }}</span>
+                <i class="flecha fas fa-arrow-right" aria-hidden="true"></i>
+                <span class="hora">{{ f.fin }}</span>
+              </td>
+
+              <!-- ===== COLUMNA VENDE ===== -->
+              <td class="col-spread">
+                <div
+                  class="spread-box"
+                  [class.error]="hasFieldError(gi, fi, 'vende') || (showAlertaCeros && puedeEditar(g.nombre,'vende') && isZero(f.vende, g.nombre))"
+                  [class.disabled]="!puedeEditar(g.nombre,'vende')"
+                >
+                  <div class="valor-wrap" *ngIf="!f.edit || !puedeEditar(g.nombre,'vende'); else edicionVende">
+                    <span class="valor">{{ f.vende }}</span>
+                  </div>
+                  <ng-template #edicionVende>
+                    <input
+                      class="input-spread"
+                      [class.error]="hasFieldError(gi, fi, 'vende') || (showAlertaCeros && puedeEditar(g.nombre,'vende') && isZero(f.vende, g.nombre))"
+                      type="text"
+                      [disabled]="!puedeEditar(g.nombre,'vende')"
+                      [value]="f.vende"
+                      (focus)="startEditing(gi, fi, 'vende')"
+                      (keydown.enter)="onEnterGuardar(gi, fi, $event)"
+                      (input)="onInputSpread(gi, fi, 'vende', $event)"
+                      (keydown)="permitirTeclasNumericas($event)"
+                      (blur)="normalizarBlur(gi, fi, 'vende', $event)"
+                      inputmode="decimal"
+                      autocomplete="off" />
+                  </ng-template>
+                </div>
+              </td>
+
+              <!-- ===== COLUMNA COMPRA ===== -->
+              <td class="col-spread col-spread-c">
+                <div
+                  class="spread-box"
+                  [class.error]="hasFieldError(gi, fi, 'compra') || (showAlertaCeros && puedeEditar(g.nombre,'compra') && isZero(f.compra, g.nombre))"
+                  [class.disabled]="!puedeEditar(g.nombre,'compra')"
+                >
+                  <div class="valor-wrap" *ngIf="!f.edit || !puedeEditar(g.nombre,'compra'); else edicionCompra">
+                    <span class="valor">{{ f.compra }}</span>
+                  </div>
+                  <ng-template #edicionCompra>
+                    <input
+                      class="input-spread"
+                      [class.error]="hasFieldError(gi, fi, 'compra') || (showAlertaCeros && puedeEditar(g.nombre,'compra') && isZero(f.compra, g.nombre))"
+                      type="text"
+                      [disabled]="!puedeEditar(g.nombre,'compra')"
+                      [value]="f.compra"
+                      (focus)="startEditing(gi, fi, 'compra')"
+                      (keydown.enter)="onEnterGuardar(gi, fi, $event)"
+                      (input)="onInputSpread(gi, fi, 'compra', $event)"
+                      (keydown)="permitirTeclasNumericas($event)"
+                      (blur)="normalizarBlur(gi, fi, 'compra', $event)"
+                      inputmode="decimal"
+                      autocomplete="off" />
+                  </ng-template>
+                </div>
+              </td>
+
+              <!-- ===== ACCIONES POR FILA ===== -->
+              <td class="col-edit">
+                <button
+                  class="icon-btn"
+                  *ngIf="!f.edit"
+                  [disabled]="!puedeEditar(g.nombre,'vende') && !puedeEditar(g.nombre,'compra')"
+                  (click)="habilitarEdicion(gi, fi)"
+                >
+                  <i class="fa-solid fa-pen-to-square"></i>
+                  <span class="tooltip">Edita registro</span>
+                </button>
+                <button class="icon-btn guardar" *ngIf="f.edit" (click)="guardarFila(gi, fi)">
+                  <i class="fas fa-save"></i>
+                  <span class="tooltip">Guarda registro</span>
+                </button>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ===== LEYENDAS DE ERROR + AVISO (DEBAJO DE LA TABLA) ===== -->
+    <div class="alerta-wrapper">
+      <div *ngIf="alerta.tipo !== 'none'" class="mensaje-error">
+        <i class="fas fa-exclamation-circle"></i>
+        <span class="strong" *ngIf="alerta.tipo === 'decimales'">Solo se permiten ingresar {{alerta.max}} decimales</span>
+        <span class="strong" *ngIf="alerta.tipo === 'decimales_min'">No se permite capturar menos de {{alerta.max}} decimales</span>
+        <span class="strong" *ngIf="alerta.tipo === 'caracteres'">No se permiten ingresar caracteres especiales y/o valores negativos</span>
+        <span class="strong" *ngIf="alerta.tipo === 'entero'">Valor no permitido para el spread</span>
+      </div>
+
+      <div *ngIf="showAlertaCeros" class="mensaje-error">
+        <i class="fas fa-exclamation-circle"></i>
+        <span class="strong">Asignar spread para cada una de las divisas</span>
+      </div>
+
+      <!-- ===== AVISO INFORMATIVO (MISMA LEYENDA QUE EN PARES-DIVISAS) ===== -->
+      <div class="mensaje-aviso info">
+        <i class="fas fa-info-circle"></i>
+        <span class="strong azul-texto">
+          Monto mínimo a partir de 1.00 unidad de moneda, aplica en contravalor.
+        </span>
+      </div>
+    </div>
+
+    <!-- ===== ACCIONES ===== -->
+    <div class="acciones">
+      <button class="btn-principal" (click)="confirmar()">Confirmar estrategia</button>
+    </div>
+
+
+<!-- ===== PIE ===== -->
+<div class="preview-footer">Paso 7 de 7</div>
+
+<!-- ===== MODAL MISMOS SPREADS ===== -->
+<button
+  *ngIf="mostrarModalMismosSpreads"
+  type="button"
+  class="modal-backdrop"
+  (click)="cerrarModal(false)"
+  aria-label="Cerrar modal de mismos spreads">
+</button>
+<dialog
+  class="modal-contenedor"
+  *ngIf="mostrarModalMismosSpreads"
+  [open]="mostrarModalMismosSpreads"
+  aria-label="Mismos spreads"
+  (click)="$event.stopPropagation()"
+  (keydown)="0"
+  [class.con-jpy]="incluirJPY && tieneJPY"
+  style="width: 326px;"
+>
+  <button
+    class="modal-cerrar"
+    type="button"
+    (click)="cerrarModal(false); $event.stopPropagation()"
+    aria-label="Cerrar"
+    title="Cerrar"
+  >
+    <svg class="modal-cerrar__icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+
+  <!-- ===== CUERPO MODAL ===== -->
+  <div class="modal-body" *ngIf="!exitoMismosSpreads; else exitoGlobalTpl">
+    <div class="modal-titulo">Spreads globales</div>
+    <p class="modal-desc">Captura los spreads que apliquen a todos los pares seleccionados</p>
+
+    <div class="modal-tabla-wrapper">
+      <table class="modal-tabla">
+        <thead>
+          <tr>
+            <th>Spread Venta<span class="sub">Monex entrega</span></th>
+            <th>Spread Compra<span class="sub">Monex recibe</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <input
+                type="text"
+                class="input-modal"
+                [value]="modalTodos.vende"
+                (input)="onInputModal('todos','vende',$event)"
+                (keydown)="permitirTeclasNumericas($event)"
+                (blur)="normalizarModal('todos','vende',$event)"
+                inputmode="decimal"
+                autocomplete="off"
+                placeholder="0.0000" />
+            </td>
+            <td>
+              <input
+                type="text"
+                class="input-modal"
+                [value]="modalTodos.compra"
+                (input)="onInputModal('todos','compra',$event)"
+                (keydown)="permitirTeclasNumericas($event)"
+                (blur)="normalizarModal('todos','compra',$event)"
+                inputmode="decimal"
+                autocomplete="off"
+                placeholder="0.0000" />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="switch-jpy">
+      <span class="switch-jpy-label" id="lbl-incluir-jpy">Seleccionar JPY</span>
+      <label class="switch" for="incluirJPYChk">
+        <input id="incluirJPYChk" type="checkbox" [(ngModel)]="incluirJPY" [disabled]="!tieneJPY" aria-labelledby="lbl-incluir-jpy"/>
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="modal-tabla-wrapper" *ngIf="tieneJPY && incluirJPY">
+      <table class="modal-tabla">
+        <thead>
+          <tr>
+            <th>Spread Venta<span class="sub">Monex entrega</span></th>
+            <th>Spread Compra<span class="sub">Monex recibe</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <input
+                type="text"
+                class="input-modal"
+                [value]="modalJPY.vende"
+                (input)="onInputModal('jpy','vende',$event)"
+                (keydown)="permitirTeclasNumericas($event)"
+                (blur)="normalizarModal('jpy','vende',$event)"
+                inputmode="decimal"
+                autocomplete="off"
+                placeholder="0.000000" />
+            </td>
+            <td>
+              <input
+                type="text"
+                class="input-modal"
+                [value]="modalJPY.compra"
+                (input)="onInputModal('jpy','compra',$event)"
+                (keydown)="permitirTeclasNumericas($event)"
+                (blur)="normalizarModal('jpy','compra',$event)"
+                inputmode="decimal"
+                autocomplete="off"
+                placeholder="0.000000" />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-principal btn-modal" (click)="aplicarModal()">Aplicar spreads</button>
+    </div>
+  </div>
+
+  <!-- ===== MODAL ÉXITO ===== -->
+  <ng-template #exitoGlobalTpl>
+    <div class="modal-body modal-ok__body">
+      <div class="modal-titulo">Spreads actualizados exitosamente</div>
+      <div class="modal-footer">
+        <button class="btn-principal btn-modal" (click)="exitoMismosSpreads = false; cerrarModal(true)">Aceptar</button>
+      </div>
+    </div>
+  </ng-template>
+</dialog>
+
+<!-- ===== MODAL DE CONFIRMACIÓN PREVIA ===== -->
+<button
+  *ngIf="mostrarModalConfirmar"
+  type="button"
+  class="modal-backdrop"
+  (click)="cancelarConfirmacion()
+  "
+  aria-label="Cerrar confirmación previa">
+</button>
+<dialog
+  class="modal-contenedor modal-ok"
+  *ngIf="mostrarModalConfirmar"
+  [open]="mostrarModalConfirmar"
+  aria-label="Confirmar aplicación de estrategia"
+  (click)="$event.stopPropagation()"
+  (keydown)="0"
+>
+  <button
+    class="modal-cerrar"
+    type="button"
+    (click)="cancelarConfirmacion(); $event.stopPropagation()"
+    aria-label="Cerrar"
+    title="Cerrar"
+  >
+    <svg class="modal-cerrar__icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+
+  <div class="modal-body modal-ok__body">
+    <div class="modal-titulo">Aplicar estrategia</div>
+    <p class="modal-desc" style="text-align:center;margin-top:4px;">
+      Se aplicará la configuración capturada.
+    </p>
+    <!-- Orden actualizado: Regresar (izquierda) y Confirmar (derecha) -->
+    <div class="modal-footer" style="gap:8px;">
+      <button class="btn-secundario btn-modal" (click)="cancelarConfirmacion()">Regresar</button>
+      <button class="btn-principal btn-modal" (click)="confirmarAplicacion()">Confirmar</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ===== MODAL ÉXITO FINAL ===== -->
+<button
+  *ngIf="mostrarModalExito"
+  type="button"
+  class="modal-backdrop"
+  (click)="$event.stopPropagation()"
+  aria-label="Cerrar ventana de éxito">
+</button>
+<dialog
+  class="modal-contenedor modal-exito"
+  *ngIf="mostrarModalExito"
+  [open]="mostrarModalExito"
+  aria-label="Confirmación exitosa"
+  (click)="$event.stopPropagation()"
+  (keydown)="0"
+>
+  <button
+    class="modal-cerrar"
+    type="button"
+    (click)="cerrarModalExito(); $event.stopPropagation()"
+    aria-label="Cerrar"
+    title="Cerrar"
+  >
+    <svg class="modal-cerrar__icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+
+  <div class="modal-body modal-exito__body">
+    <div class="exito-icono" aria-hidden="true">
+      <svg width="56" height="56" viewBox="0 0 56 56" focusable="false">
+        <circle cx="28" cy="28" r="28" fill="#2ECC71"></circle>
+        <path d="M39 22L26 35l-7-7" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+    </div>
+
+    <div class="modal-titulo">Configuración de estrategia exitosa</div>
+
+    <p class="modal-desc modal-exito__desc">
+      Se ha configurado correctamente la estrategia y está
+      disponible para operar en plataformas
+    </p>
+
+    <div class="modal-footer">
+      <button class="btn-principal btn-modal" (click)="cerrarModalExito()">Cerrar ventana</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ===== MODAL OK POR FILA (pequeño, estilo unificado) ===== -->
+<button
+  *ngIf="mostrarModalOkEdicion"
+  type="button"
+  class="modal-backdrop"
+  (click)="cerrarModalOkEdicion()"
+  aria-label="Cerrar confirmación de actualización">
+</button>
+<dialog
+  class="modal-contenedor modal-ok-peq"
+  *ngIf="mostrarModalOkEdicion"
+  [open]="mostrarModalOkEdicion"
+  aria-label="Spread actualizado"
+  (click)="$event.stopPropagation()"
+  (keydown)="0"
+>
+  <button
+    class="modal-cerrar"
+    type="button"
+    (click)="cerrarModalOkEdicion(); $event.stopPropagation()"
+    aria-label="Cerrar"
+    title="Cerrar"
+  >
+    <svg class="modal-cerrar__icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M18 6L6 18M6 6l12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+
+  <div class="modal-body modal-ok__body-peq">
+    <div class="modal-titulo modal-ok__titulo-peq">Spread actualizado exitosamente</div>
+    <div class="modal-footer">
+      <button class="btn-principal btn-modal btn-modal--peq" (click)="cerrarModalOkEdicion()">Aceptar</button>
+    </div>
+  </div>
+</dialog>

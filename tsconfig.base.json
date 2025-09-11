@@ -1,0 +1,30 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "es2015",
+    "module": "esnext",
+    "lib": ["es2020", "dom"],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@fxultra-admin-app-mf/msal": ["shared/src/index.ts"],
+      "fxultra_admin_home_mf/Routes": [
+        "apps/fxultra_admin_home_mf/src/app/remote-entry/entry.routes.ts"
+      ],
+      "fxultra_admin_login_mf/Routes": [
+        "apps/fxultra_admin_login_mf/src/app/remote-entry/entry.routes.ts"
+      ],
+      "fxultra_admin_strategies_mf/Routes": [
+        "apps/fxultra_admin_strategies_mf/src/app/remote-entry/entry.routes.ts"
+      ]
+    }
+  }
+}

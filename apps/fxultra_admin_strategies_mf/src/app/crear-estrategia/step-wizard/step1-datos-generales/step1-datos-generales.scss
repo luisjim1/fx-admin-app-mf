@@ -1,0 +1,354 @@
+/* apps/fxultra_admin_strategies_mf/src/app/crear-estrategia/step-wizard/step1-datos-generales/step1-datos-generales.scss */
+/* datos-generales.component.scss — COMPLETO */
+.datos-generales-container {
+  background: #fff;
+  border-radius: 8px;
+  padding: 0;
+  font-family: 'Roboto', sans-serif;
+  position: relative;
+}
+
+.row {
+  display: flex;
+  gap: 0;
+  margin-bottom: 0;
+  @media (max-width: 800px) {
+    flex-direction: column;
+  }
+}
+
+.col {
+  flex: 1;
+  min-width: 220px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+  position: relative;
+}
+
+label {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 120%;
+  color: #000;
+  margin-bottom: 6px;
+  vertical-align: middle;
+}
+
+.req {
+  color: #0083FF;
+  margin-left: 2px;
+  font-size: 16px;
+  font-family: 'Roboto', sans-serif;
+}
+
+.descripcion-estrategia-group {
+  margin-top: -8px;
+  margin-bottom: 18px;
+}
+
+/* ===== Campos principales ===== */
+input.form-control,
+select.form-control {
+  width: 220px;
+  height: 40px;
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #00000080;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  color: #222;
+  box-sizing: border-box;
+  outline: none;
+  margin: 0;
+  transition: border 0.2s;
+  &:focus {
+    border: 1.5px solid #00000080;
+    box-shadow: none;
+  }
+}
+
+select.form-control,
+select.form-control option {
+  color: #222 !important;
+  background: #fff;
+  font-family: 'Roboto', sans-serif;
+  font-size: 14px;
+}
+
+.input-error {
+  border: 2px solid #D22419 !important;
+  background: #fff !important;
+  color: inherit !important;
+}
+
+.select-dropdown-wrapper {
+  position: relative;
+  width: 100%;
+  min-width: 220px;
+}
+
+.select-dropdown-wrapper select.form-control {
+  width: 100%;
+  min-width: 220px;
+  padding-right: 38px !important;
+  background: #fff !important;
+  border: 1px solid #00000080;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+}
+
+.select-dropdown-wrapper .chevron-icon {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  background: #fff;
+  padding-left: 2px;
+  padding-right: 2px;
+  z-index: 2;
+}
+
+.select-dropdown-wrapper .chevron-icon i {
+  font-size: 14px;
+  color: #002E9D;
+}
+
+/* ===== Descripción ===== */
+textarea.form-control {
+  width: 100%;
+  min-height: 60px;
+  max-width: 98%;
+  height: 85px;
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #00000080;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-family: 'Roboto', sans-serif;
+  color: #222;
+  resize: none;
+  outline: none;
+  &:focus {
+    border: 1.5px solid #00000080;
+    box-shadow: none;
+  }
+}
+
+textarea.form-control.input-activo {
+  border: 1.5px solid #0098DD !important;
+  background: #fff !important;
+  color: #222;
+}
+
+/* ===== Acciones ===== */
+.acciones {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  margin-top: 18px;
+  margin-bottom: 8px;
+}
+
+.btn-principal {
+  width: 207.5px;
+  height: 42px;
+  border-radius: 100px;
+  padding: 12px;
+  background: #0098DD;
+  color: #fff;
+  font-family: 'Raleway', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 120%;
+  letter-spacing: 0px;
+  border: none;
+  outline: none;
+  transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  &:hover, &:focus {
+    background: #0077AA;
+  }
+}
+
+.descartar-cambios {
+  font-family: 'Raleway', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 120%;
+  color: #0098DD;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  outline: none;
+  text-decoration: none;
+  margin-left: 10px;
+  transition: color 0.2s;
+  &:hover, &:focus { text-decoration: underline; color: #0077AA; }
+}
+
+/* ===== Mensajes ===== */
+.mensaje-error {
+  margin-top: 4px;
+  color: #D22419;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 100%;
+  letter-spacing: 0px;
+  display: flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 0;
+  background: none;
+}
+
+.mensaje-error i {
+  font-size: 15px;
+  margin-right: 5px;
+  color: #D22419;
+}
+
+.mensaje-error .strong {
+  font-weight: 700;
+  margin-right: 3px;
+}
+
+.mensaje-error-placeholder {
+  min-height: 18px;
+  padding: 0;
+  margin: 0;
+  visibility: hidden;
+}
+
+.progreso {
+  margin-top: 18px;
+  padding: 4px 14px 4px 14px;
+  display: inline-block;
+  font-family: 'Roboto', sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 14px;
+  line-height: 100%;
+  letter-spacing: 0px;
+  color: #565769;
+}
+
+/* ===== Checkbox fijo ===== */
+.operacion-horarios-group {
+  margin-bottom: 18px;
+  margin-top: 4px;
+}
+
+.operar-label {
+  display: block;
+  font-family: 'Roboto', sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  color: #000;
+  margin-bottom: 10px;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 2px;
+}
+
+.custom-checkbox-label {
+  display: flex;
+  align-items: center;
+  font-family: 'Roboto', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  color: #222;
+  user-select: none;
+  position: relative;
+}
+
+.custom-checkbox-label input[type="checkbox"] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.checkbox-custom {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  border: 1px solid #00000080;
+  background: #fff;
+  display: inline-block;
+  margin-right: 7px;
+  position: relative;
+  transition: border 0.2s, background 0.2s;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+.custom-checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
+  background: #001865;
+  border: 1px solid #001865;
+}
+
+.custom-checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 0px;
+  width: 5px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2.5px 0;
+  transform: rotate(45deg);
+  display: block;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 800px) {
+  input.form-control,
+  select.form-control,
+  .select-dropdown-wrapper select.form-control {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .acciones {
+    margin-top: 12px;
+  }
+}
+
+.input-activo {
+  border: 1.5px solid #0098DD !important;
+  background: #fff !important;
+  color: #222;
+}
+
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 1000; }
+.modal-contenedor { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 326px; max-width: 95vw; background: #fff; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.25); z-index: 1001; overflow: hidden; font-family: 'Roboto', sans-serif; }
+.modal-body { padding: 16px; }
+.modal-titulo { text-align: center; font-family: 'Raleway', sans-serif; font-weight: 700; font-size: 20px; color: #0098DD; margin-bottom: 8px; margin-top: 20px; }
+.modal-cerrar { position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; border: 0; background: transparent; cursor: pointer; color: #0098DD; display: inline-flex; align-items: center; justify-content: center; z-index: 1002; }
+.modal-cerrar__icon { width: 20px; height: 20px; display: block; pointer-events: none; }
+.modal-footer { display: flex; justify-content: center; margin-top: 10px; padding-bottom: 8px; }
+.btn-modal { width: 180px; font-size: 14px; }
+
+.modal-contenedor.modal-ok-peq { width: 326px; }
+.modal-ok__body-peq { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding-top: 8px; }
+.modal-ok__titulo-peq { font-size: 16px; color:#0098DD; margin-top: 4px; }
+.btn-modal--peq { width: 128px; font-size: 12px; }

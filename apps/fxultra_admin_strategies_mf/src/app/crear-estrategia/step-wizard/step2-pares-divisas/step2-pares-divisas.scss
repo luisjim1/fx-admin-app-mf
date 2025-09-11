@@ -1,0 +1,265 @@
+/* pares-divisas.component.scss */
+
+/* ===== Sección: Contenedor / Alineación ===== */
+@use '../step1-datos-generales/step1-datos-generales' as *;
+.datos-generales-container { padding: 32px 32px 12px 0; text-align: left; }
+.pares-titulo { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 16px; line-height: 100%; color: #000; margin-bottom: 24px; }
+
+/* ===== Sección: Buscador / Dropdown ===== */
+.buscador-row {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 14px;
+
+  .label-buscar { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 16px; color: #000; margin-right: 8px; }
+
+  .input-buscar-wrapper {
+    position: relative; width: 240px;
+
+    .svg-lupa { position: absolute; top: 50%; left: 10px; transform: translateY(-50%); width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+
+    .input-buscar {
+      width: 100%; height: 40px; border-radius: 4px; border: 1.5px solid #e4e8ee; background: #E5EAF5;
+      padding: 8px 8px 8px 40px; font-size: 14px; font-family: 'Roboto', sans-serif; color: #1a2947; outline: none; transition: border .2s;
+      &:focus { border: 1.5px solid #0098dd; background: #fff; }
+    }
+
+    .dropdown {
+      position: absolute; top: 44px; left: 0; right: 0; z-index: 2000; background: #fff; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.15); overflow: hidden; max-height: 240px;
+
+      .dropdown-item {
+        width: 100%; padding: 10px 12px; background: #fff; border: 0; text-align: left; cursor: pointer;
+        font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 16px; line-height: 120%; letter-spacing: 0;
+        color: #151920;
+        &:hover { background: #E5EAF5; }
+        &.active { background: #E5EAF5; }
+        &:disabled { color: #999; cursor: default; }
+      }
+
+      &.dropdown--vacio {
+        .dropdown-empty { padding: 10px 12px; font-size: 14px; color: #666; }
+      }
+    }
+  }
+}
+
+/* ===== Sección: Checkbox masivo ===== */
+.check-todos {
+  position: relative; display: block; padding-left: 24px; margin: 0 0 10px 0; cursor: pointer; user-select: none;
+  .check-todos-label { font-size: 14px; color: #000; }
+  .custom-checkbox { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; margin: 0; opacity: 0; z-index: 2; cursor: pointer; }
+  .checkbox-custom { position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; border-radius: 2px; border: 1px solid #00000080; background: #fff; }
+  .custom-checkbox:checked + .checkbox-custom { background: #001865; border-color: #001865; }
+  .custom-checkbox:checked + .checkbox-custom::after { content: ''; position: absolute; left: 4px; top: 1.5px; width: 6px; height: 11px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+}
+
+/* ===== Sección: Tabla ===== */
+.tabla-wrapper { width: max-content; border: 1px solid #ccc; border-radius: 4px; overflow: visible; display: block; margin-left: 0; }
+.tabla-pares { border-collapse: collapse; table-layout: fixed; }
+.tabla-pares thead th { background: #001865; color: #fff; height: 40px; padding: 0 8px; font-family: 'Raleway', sans-serif; font-weight: 700; font-size: 16px; line-height: 120%; text-align: left; border: 0; white-space: nowrap; }
+.tabla-pares thead th .sub { display: block; font-weight: 400; font-size: 14px; color: #fff; }
+
+.tabla-pares col.col-check    { width: 36px; }
+.tabla-pares col.col-par      { width: 142px; }
+.tabla-pares col.col-monto    { width: 150px; }
+.tabla-pares col.col-acciones { width: 78px; }
+
+.tabla-pares tbody tr:nth-child(odd)  { background: #FFFFFF; }
+.tabla-pares tbody tr:nth-child(even) { background: #F3F3F3; }
+.tabla-pares tbody td { padding: 0 8px; height: 40px; vertical-align: middle; font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 14px; color: #000; border: 0; border-bottom: 1px solid #ddd; white-space: nowrap; }
+.tabla-pares tbody td + td { border-left: 1px solid #ddd; }
+.tabla-pares tbody tr:last-child td { border-bottom: 0; }
+
+/* ===== Sección: Columna 1 (checkbox) ===== */
+.tabla-pares tbody td:first-child { padding: 0; display: flex; align-items: center; justify-content: center; }
+.par-checkbox { position: relative; width: 16px; height: 16px; display: block; cursor: pointer; }
+.par-checkbox .custom-checkbox { position: absolute; inset: 0; opacity: 0; margin: 0; z-index: 2; cursor: pointer; }
+.par-checkbox .checkbox-custom { position: absolute; inset: 0; width: 16px; height: 16px; border-radius: 2px; border: 1px solid #00000080; background: #fff; box-sizing: border-box; }
+.par-checkbox .custom-checkbox:checked + .checkbox-custom { background: #001865; border-color: #001865; }
+.par-checkbox .custom-checkbox:checked + .checkbox-custom::after { content: ''; position: absolute; left: 4px; top: 1.5px; width: 6px; height: 11px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+
+/* ===== Sección: Monto y código de moneda ===== */
+.monto-box { width: 100%; height: 32px; display: flex; align-items: center; gap: 8px; justify-content: flex-end; box-sizing: border-box; }
+.monto-box.error { border: 1px solid #D22419; border-radius: 4px; padding: 2px; cursor: text; }
+.monto-box.editing { outline: 2px solid #002E9D; outline-offset: 2px; border-radius: 6px; }
+.monto-input { width: 100px; height: 28px; border: 0; outline: none; background: transparent; font-family: 'Roboto', sans-serif; font-size: 14px; color: #000; text-align: right; }
+.moneda-code { font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 13px; color: #000; }
+
+/* ===== Sección: Acciones por fila ===== */
+.acciones-col { text-align: center; }
+.icon-btn { position: relative; background: none; border: none; cursor: pointer; color: #000; padding: 0 6px; }
+.icon-btn i { font-size: 16px; color: #001865; }
+.icon-btn svg { width: 24px; height: 24px; color: #001865; }
+.icon-btn.guardar i { font-size: 16px; }
+.icon-btn:disabled { cursor: not-allowed; }
+.icon-btn:disabled i,
+.icon-btn:disabled svg { color: #ccc; }
+
+/* ===== Sección: Tooltip ===== */
+.tooltip { position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); background: #3A4A63; color: #FFFFFF; font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 12px; line-height: 100%; padding: 6px 9px; border-radius: 4px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .2s; min-width: 102px; text-align: center; }
+.icon-btn:hover .tooltip { opacity: 1; }
+
+/* ===== Sección: Mensajes y acciones globales ===== */
+.alerta-wrapper { min-height: 26px; margin: 10px 0 0 0; }
+
+.mensaje-error {
+  display: flex; align-items: center; gap: 8px; margin: 6px 0;
+  font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 14px; color: #D22419;
+  i { font-size: 16px; color: #D22419; }
+}
+
+.mensaje-info {
+  margin-top: 8px; padding: 10px 14px; border-radius: 6px; background: #E6F2FF; border: 1px solid #B6D9F7;
+  font-family: 'Roboto', sans-serif; font-size: 15px; color: #000; display: inline-block; width: auto;
+  .strong.azul-alerta { font-weight: 700; color: #002E9D; margin-right: 3px; }
+  .resto-alerta { margin-left: 0; }
+}
+
+.mensaje-aviso.info {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  font-family: 'Roboto', sans-serif; font-weight: 700; font-size: 16px; line-height: 120%; color: #002E9D;
+  i { color: #002E9D; }
+}
+.azul-texto { color: #002E9D; }
+
+/* ===== Sección: Acciones / progreso ===== */
+.acciones { display: flex; align-items: center; gap: 16px; margin-top: 16px; margin-bottom: 28px; }
+.btn-principal {
+  background: #0098DD; color:#fff; border-radius:24px; border:none;
+  font-family:'Raleway',sans-serif; font-weight:700; font-size:16px;
+  padding: 8px 26px; cursor: pointer; transition: background .2s;
+  white-space: nowrap;
+}
+.btn-principal:hover, .btn-principal:focus { background:#0077AA; }
+.restablecer {
+  color:#0098DD; font-family:'Raleway',sans-serif; font-weight:700; font-size:15px;
+  cursor:pointer; margin-left:10px; text-decoration:none;
+}
+.restablecer:hover, .restablecer:focus { text-decoration: underline; color:#0077AA; }
+
+/* Botón tipo texto para confirmación */
+.btn-texto {
+  background: transparent; border: none; border-radius: 100px;
+  color:#0098DD; font-family:'Raleway',sans-serif; font-weight:700; font-size:14px;
+  padding: 8px 16px; cursor: pointer;
+}
+.btn-texto:hover, .btn-texto:focus { color:#0077AA; text-decoration: underline; }
+
+/* ===== Sección: Subinfo ===== */
+.subinfo-row {
+  margin-top: 10px;
+  .info-col { display: flex; flex-direction: column; align-items: flex-start; }
+  .simbolos-disponibles { font-family: 'Roboto', sans-serif; font-size: 14px; color: rgba(0,0,0,.5); margin-bottom: 10px; }
+  .progreso.datos-generales-progreso { font-family: 'Roboto', sans-serif; font-size: 14px; color: #565769; font-weight: 400; }
+}
+
+/* ===== Sección: Modal base ===== */
+.estado-vacio { font-family: 'Roboto', sans-serif; font-size: 14px; color: #565769; margin: 6px 0 12px; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 1000; }
+.modal-contenedor { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 326px; max-width: 95vw; background: #fff; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.25); z-index: 1001; overflow: hidden; font-family: 'Roboto', sans-serif; }
+.modal-body { padding: 16px; }
+.modal-titulo { text-align: center; font-family: 'Raleway', sans-serif; font-weight: 700; font-size: 20px; color: #0098DD; margin-bottom: 8px; margin-top: 20px; }
+.modal-desc { font-family: 'Roboto', sans-serif; font-weight: 400; font-size: 16px; color: #000; margin: 0 0 12px 0; text-align: center; }
+.modal-cerrar { position: absolute; top: 6px; right: 6px; width: 32px; height: 32px; border: 0; background: transparent; cursor: pointer; color: #0098DD; display: inline-flex; align-items: center; justify-content: center; z-index: 1002; }
+.modal-cerrar__icon { width: 20px; height: 20px; display: block; pointer-events: none; }
+.modal-input-wrap { margin-top: 8px; border: 1px solid #ccc; border-radius: 6px; padding: 6px 10px; &.error { border-color: #D22419; } }
+.modal-input { height: 28px; text-align: right; width: 100%; border: 0; outline: none; background: transparent; }
+.modal-footer { display: flex; justify-content: center; margin-top: 10px; padding-bottom: 8px; }
+.btn-modal { width: 180px; font-size: 14px; }
+
+/* ===== Modales pequeños / OK ===== */
+.modal-contenedor.modal-ok-peq { width: 326px; }
+.modal-ok__body-peq { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding-top: 8px; }
+.modal-ok__titulo-peq { font-size: 16px; color:#0098DD; margin-top: 4px; }
+.btn-modal--peq { width: 128px; font-size: 12px; }
+
+/* ===== Confirmar eliminación ===== */
+.modal-contenedor.modal-ok-peq[aria-label="Confirmar eliminación"] {
+  width: 360px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.2);
+}
+.modal-contenedor.modal-ok-peq[aria-label="Confirmar eliminación"] .modal-ok__body-peq { padding: 16px 20px; }
+.modal-contenedor.modal-ok-peq[aria-label="Confirmar eliminación"] .modal-confirm-delete__desc {
+  font-family: 'Roboto', sans-serif; font-size: 16px; color: #000; margin: 6px 0 0 0; text-align: center;
+}
+.modal-contenedor.modal-ok-peq[aria-label="Confirmar eliminación"] .modal-confirm-delete__opciones {
+  justify-content: center; gap: 18px; margin-top: 14px;
+}
+.modal-contenedor.modal-ok-peq[aria-label="Confirmar eliminación"]
+  .modal-confirm-delete__opciones > button:first-child {
+  background: none; border: none; cursor: pointer;
+  font-family: 'Raleway', sans-serif; font-size: 14px; font-weight: 600; color: #0098DD;
+}
+.modal-contenedor.modal-ok-peq[aria-label="Confirmar eliminación"]
+  .modal-confirm-delete__opciones > button:first-child:hover,
+.modal-contenedor.modal-ok-peq[aria-label="Confirmar eliminación"]
+  .modal-confirm-delete__opciones > button:first-child:focus {
+  color: #0098DD; text-decoration: none;
+}
+.modal-contenedor.modal-ok-peq[aria-label="Confirmar eliminación"]
+  .modal-confirm-delete__opciones > button:last-child {
+  width: auto;
+  height: 32px;
+  border-radius: 100px;
+  padding: 6px 14px;
+  background: #0098DD;
+  color: #fff;
+  font-family: 'Raleway', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  transition: background .2s;
+  text-decoration: none;
+}
+.modal-contenedor.modal-ok-peq[aria-label="Confirmar eliminación"]
+  .modal-confirm-delete__opciones > button:last-child:hover,
+.modal-contenedor.modal-ok-peq[aria-label="Confirmar eliminación"]
+  .modal-confirm-delete__opciones > button:last-child:focus {
+  background: #0077AA;
+  text-decoration: none;
+}
+
+/* ===== Restablecer ===== */
+.modal-contenedor.modal-rest {
+  width: 360px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.2);
+}
+.modal-contenedor.modal-rest .modal-rest__titulo {
+  margin-top: 10px;
+  margin-bottom: 12px;
+}
+.modal-contenedor.modal-rest .modal-opciones {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+.modal-contenedor.modal-rest .btn-modal {
+  width: auto;
+  height: 32px;
+  border-radius: 100px;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-family: 'Raleway', sans-serif;
+  font-weight: 700;
+  background: #0098DD;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background .2s;
+}
+.modal-contenedor.modal-rest .btn-modal:hover,
+.modal-contenedor.modal-rest .btn-modal:focus {
+  background: #0077AA;
+}
+
+.divisa-strong { font-weight: 700; }
+
+/* ===== Responsive ===== */
+@media (max-width: 800px) {
+  .datos-generales-container { padding: 16px 6px 8px 0; }
+  .buscador-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .input-buscar-wrapper { width: 100% !important; }
+}
