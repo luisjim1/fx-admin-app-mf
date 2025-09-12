@@ -12,7 +12,6 @@ const mfConfig: ModuleFederationConfig = {
     ['fxultra_admin_strategies_mf', '/remotes/fxultra_admin_strategies_mf/remoteEntry.mjs'],
   ],
 
-  // Forzamos MSAL como singleton desde el host
   additionalShared: SINGLETON_LIBS.map((libraryName) => ({
     libraryName,
     sharedConfig: {

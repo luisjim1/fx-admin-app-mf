@@ -1,11 +1,13 @@
-<!-- pares-divisas.component.html -->
+<!-- apps/fxultra_admin_strategies_mf/src/app/crear-estrategia/step-wizard/step2-pares-divisas/step2-pares-divisas.html -->
+
+<!-- Sección: Contenedor principal -->
 <div class="datos-generales-container">
-  <!-- ===== Sección: Título ===== -->
+  <!-- Sección: Título -->
   <div class="pares-titulo">
     Selecciona los instrumentos disponibles por la Mesa de cambios, y captura el monto máximo por operación.
   </div>
 
-  <!-- ===== Sección: Buscador / Dropdown ===== -->
+  <!-- Sección: Buscador / Dropdown -->
   <div class="buscador-row">
     <label class="label-buscar">Elige las divisas a operar:</label>
 
@@ -29,7 +31,12 @@
         (blur)="cerrarDropdownConRetardo()"
       />
 
-      <div class="dropdown" *ngIf="dropdownAbierto && opcionesFiltradas.length">
+      <!-- Sección: Lista desplegable (con scroll automático) -->
+      <div
+        class="dropdown"
+        *ngIf="dropdownAbierto && opcionesFiltradas.length"
+        style="max-height: 240px; overflow: auto;"
+      >
         <button
           type="button"
           class="dropdown-item"
@@ -48,7 +55,7 @@
     </div>
   </div>
 
-  <!-- ===== Sección: Checkbox masivo (abre modal) ===== -->
+  <!-- Sección: Checkbox masivo (abre modal) -->
   <label class="check-todos" (click)="$event.stopPropagation()">
     <input
       type="checkbox"
@@ -60,7 +67,7 @@
     <span class="check-todos-label">Mismo monto para todos los pares de divisas</span>
   </label>
 
-  <!-- ===== Sección: Tabla ===== -->
+  <!-- Sección: Tabla -->
   <div class="tabla-wrapper">
     <table class="tabla-pares" role="table">
       <colgroup>
@@ -83,7 +90,7 @@
       </thead>
 
       <tbody>
-        <!-- Estado: placeholder -->
+        <!-- Sección: Placeholder vacío -->
         <tr *ngIf="!seleccionados.length">
           <td>
             <label class="par-checkbox par-checkbox--tabla">
@@ -101,7 +108,7 @@
           <td class="acciones-col"></td>
         </tr>
 
-        <!-- Estado: filas reales -->
+        <!-- Sección: Filas reales -->
         <tr *ngFor="let row of seleccionados; trackBy: trackPar">
           <td>
             <label class="par-checkbox par-checkbox--tabla">
@@ -168,7 +175,7 @@
     </table>
   </div>
 
-  <!-- ===== Sección: Mensajes auxiliares ===== -->
+  <!-- Sección: Mensajes auxiliares -->
   <div class="alerta-wrapper">
     <div *ngFor="let m of mensajesValidacion" class="mensaje-error">
       <i class="fas fa-exclamation-circle"></i>
@@ -188,7 +195,7 @@
     </div>
   </div>
 
-  <!-- ===== Sección: Acciones ===== -->
+  <!-- Sección: Acciones -->
   <div class="acciones">
     <button class="btn-principal" type="button" (click)="aplicarConfiguracion()">
       Aplicar configuración
@@ -204,7 +211,7 @@
   </div>
 </div>
 
-<!-- ===== Sección: Modal MASIVO ===== -->
+<!-- Sección: Modal MASIVO -->
 <div class="modal-backdrop" *ngIf="mostrarModalMasivo" (click)="cerrarModalMasivo(false)"></div>
 <div
   class="modal-contenedor"
@@ -266,7 +273,7 @@
   </div>
 </div>
 
-<!-- ===== Sección: Modal OK pequeño (edición exitosa) ===== -->
+<!-- Sección: Modal OK pequeño (edición exitosa) -->
 <div class="modal-backdrop" *ngIf="mostrarModalOk" (click)="cerrarModalOk()"></div>
 <div
   class="modal-contenedor modal-ok-peq"
@@ -296,7 +303,7 @@
   </div>
 </div>
 
-<!-- ===== Sección: Modal RESTABLECER ===== -->
+<!-- Sección: Modal RESTABLECER -->
 <div class="modal-backdrop" *ngIf="mostrarModalRestablecer" (click)="cerrarModalRestablecer()"></div>
 <div
   class="modal-contenedor modal-rest"
@@ -328,7 +335,7 @@
   </div>
 </div>
 
-<!-- ===== Sección: Modal CONFIRMAR ELIMINACIÓN ===== -->
+<!-- Sección: Modal CONFIRMAR ELIMINACIÓN -->
 <div class="modal-backdrop" *ngIf="mostrarModalConfirmDelete" (click)="cerrarModalConfirmDelete(false)"></div>
 <div
   class="modal-contenedor modal-ok-peq"

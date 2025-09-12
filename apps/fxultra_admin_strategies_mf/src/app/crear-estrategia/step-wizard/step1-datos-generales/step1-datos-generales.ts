@@ -1,15 +1,25 @@
 // apps/fxultra_admin_strategies_mf/src/app/crear-estrategia/step-wizard/step1-datos-generales/step1-datos-generales.ts
-// datos-generales.component.ts — COMPLETO (ajustado a step por subruta)
+
 import { Component, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 
+import { EstrategiasApiService } from '../../../core/api/estrategias-api.service';
+import {
+  DatosGeneralesRequest,
+  ModoOperacion,
+  ProductoAsociado,
+  ProductoAsociadoCatalogo
+} from '../../../models/estrategias.datos-generales.types';
+import { lastValueFrom } from 'rxjs';
+
+/* Persistencia */
 const STORAGE_KEY = 'wizard_datos_generales';
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-// Navegación/edición
+/* Navegación/edición */
 const K_PROGRESS          = 'wizard_progress';
 const K_RETURN_AFTER_EDIT = 'wizard_return_after_edit';
 const K_JUMP_TO_STEP      = 'wizard_jump_to_step';
@@ -23,58 +33,67 @@ const STEP_DG_INDEX       = 0;
   imports: [CommonModule, FormsModule]
 })
 export class Step1DatosGenerales implements OnInit {
-  // ===== Campos =====
-  nombreEstrategia: string = '';
-  productoAsociado: string = '';
-  descripcion: string = '';
-  horariosEstablecidos: boolean = true;
 
-  // ===== Flags UI / validación =====
+  // ===== Datos del formulario
+  nombreEstrategia = '';
+  productoAsociado = '';
+  descripcion = '';
+  horariosEstablecidos = true;
+
+  // ===== Estado / errores
   nombreEstrategiaValido = false;
-  errorNombreExiste: boolean = false;
-  errorProductoAsociado: boolean = false;
-  errorNombreVacio: boolean = false;
-  errorDescripcionVacia: boolean = false;
-  errorMsg: string = '';
-  loading: boolean = false;
+  errorNombreExiste = false;
+  errorProductoAsociado = false;
+  errorNombreVacio = false;
+  errorDescripcionVacia = false;
+  errorMsg = '';
+  loading = false;
 
-  isNombreFocused: boolean = false;
-  isProductoFocused: boolean = false;
-  isDescripcionFocused: boolean = false;
+  isNombreFocused = false;
+  isProductoFocused = false;
+  isDescripcionFocused = false;
 
-  // ===== Modal OK =====
+  // ===== Modal
   mostrarModalOk = false;
 
-  // ===== Contexto edición =====
+  // ===== Edición
   private isEditSession = false;
 
-  // ===== Snapshot previo =====
+  // ===== Snapshot
   private prevNombre = '';
   private prevProducto = '';
   private prevDescripcion = '';
   private prevHorarios = true;
+
+  // ===== Identificador de la estrategia creada
+  private idEstrategia: number | null = null;
+
+  // ===== Catálogo
+  productosAsociados: ProductoAsociadoCatalogo[] = [];
 
   @Output() avanzarStep = new EventEmitter<void>();
 
   constructor(
     private http: HttpClient,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private estrategiasApi: EstrategiasApiService
   ) {}
 
-  // ===== Init =====
-  ngOnInit(): void {
+  // ===== Inicio
+  async ngOnInit(): Promise<void> {
     const guardado = localStorage.getItem(STORAGE_KEY);
     if (guardado) {
       try {
         const parsed = JSON.parse(guardado);
         const age = Date.now() - (parsed.timestamp ?? 0);
         if (age < MAX_AGE_MS) {
-          const { nombreEstrategia, productoAsociado, descripcion, horariosEstablecidos } = parsed;
+          const { nombreEstrategia, productoAsociado, descripcion, horariosEstablecidos, idEstrategia } = parsed;
           this.nombreEstrategia = nombreEstrategia ?? '';
           this.productoAsociado = productoAsociado ?? '';
           this.descripcion = descripcion ?? '';
           this.horariosEstablecidos = horariosEstablecidos ?? false;
+          this.idEstrategia = typeof idEstrategia === 'number' ? idEstrategia : null;
           this.nombreEstrategiaValido = !!this.nombreEstrategia;
         } else {
           localStorage.removeItem(STORAGE_KEY);
@@ -82,11 +101,46 @@ export class Step1DatosGenerales implements OnInit {
       } catch {}
     }
 
+    await this.cargarCatalogoProductos();
     this.detectarModoEdicion();
     this.capturarSnapshotPrevio();
   }
 
-  // ===== Detección de edición =====
+  // ===== Catálogo (normaliza a códigos del backend)
+  private async cargarCatalogoProductos(): Promise<void> {
+    try {
+      const raw: any[] = await lastValueFrom(this.estrategiasApi.getProductosAsociados() as any);
+
+      this.productosAsociados = (Array.isArray(raw) ? raw : []).map((it: any) => {
+        const codigoBruto =
+          it?.codigo ?? it?.valor ?? it?.clave ?? it?.id ?? it?.code ?? '';
+        const descripcion =
+          it?.descripcion ?? it?.nombre ?? it?.label ?? String(it?.valor ?? '') ?? '';
+
+        let code = String(codigoBruto).trim().toUpperCase().replace(/[\s-]+/g, '_');
+        if (code === 'COMPRAVENTA') code = 'COMPRA_VENTA';
+
+        return { codigo: code, descripcion } as ProductoAsociadoCatalogo;
+      }).filter(x => !!x.codigo);
+
+      this.normalizarProductoSeleccionado(this.productosAsociados);
+    } catch (e) {
+      console.error('Error al cargar productos asociados', e);
+    }
+  }
+
+  private normalizarProductoSeleccionado(lista: ProductoAsociadoCatalogo[]): void {
+    const actual = (this.productoAsociado || '').trim();
+    if (!actual || !lista?.length) return;
+
+    const porCodigo = lista.find(p => (p.codigo || '').toUpperCase() === actual.toUpperCase());
+    if (porCodigo) { this.productoAsociado = porCodigo.codigo; return; }
+
+    const porDescripcion = lista.find(p => (p.descripcion || '').toUpperCase() === actual.toUpperCase());
+    if (porDescripcion) { this.productoAsociado = porDescripcion.codigo; }
+  }
+
+  // ===== Detección de edición
   private detectarModoEdicion(): void {
     let fromIndex: number | null = null;
 
@@ -137,7 +191,7 @@ export class Step1DatosGenerales implements OnInit {
     }
   }
 
-  // ===== Handlers de campos =====
+  // ===== Handlers
   onNombreEstrategiaInput() {
     this.nombreEstrategiaValido = this.nombreEstrategia.trim().length > 0;
     this.errorNombreExiste = false;
@@ -146,20 +200,31 @@ export class Step1DatosGenerales implements OnInit {
     if (this.productoAsociado) this.errorProductoAsociado = false;
     this.guardarEnStorage();
   }
-  onProductoAsociadoChange() {
+
+  onProductoAsociadoChange(e?: Event) {
+    const v = (e?.target as HTMLSelectElement | null)?.value;
+    if (v != null) this.productoAsociado = v;
     this.errorProductoAsociado = false;
     this.guardarEnStorage();
     this.mostrarOkSiEditYHayCambios();
   }
+
+  onProductoAsociadoModelChange(codigo: string) {
+    if (codigo != null) this.productoAsociado = codigo;
+    this.errorProductoAsociado = false;
+    this.guardarEnStorage();
+  }
+
   onDescripcionInput() {
     this.errorDescripcionVacia = false;
     this.guardarEnStorage();
   }
+
   onHorariosCheckboxChange() {
     this.guardarEnStorage();
   }
 
-  // ===== Acciones =====
+  // ===== Persistencia local
   descartarCambios() { this.resetCampos(); }
 
   guardarEnStorage() {
@@ -168,6 +233,7 @@ export class Step1DatosGenerales implements OnInit {
       productoAsociado: this.productoAsociado,
       descripcion: this.descripcion,
       horariosEstablecidos: this.horariosEstablecidos,
+      idEstrategia: this.idEstrategia,
       timestamp: Date.now()
     }));
   }
@@ -178,7 +244,60 @@ export class Step1DatosGenerales implements OnInit {
     } catch {}
   }
 
-  aplicarConfiguracion() {
+  // ===== Utilidad: normaliza selección a código backend
+  private resolverCodigoProductoDesdeDom(): ProductoAsociado | null {
+    const sel = document.getElementById('producto-asociado') as HTMLSelectElement | null;
+    const domValue = (sel?.value ?? '').trim();
+    const domText  = (sel?.selectedOptions?.[0]?.text ?? '').trim();
+
+    const candidato = (this.productoAsociado || '').trim() || domValue || domText;
+
+    const porCodigo = this.productosAsociados.find(p => (p.codigo || '').toUpperCase() === candidato.toUpperCase());
+    if (porCodigo) return porCodigo.codigo as ProductoAsociado;
+
+    const porDescripcion = this.productosAsociados.find(p => (p.descripcion || '').toUpperCase() === candidato.toUpperCase());
+    if (porDescripcion) return porDescripcion.codigo as ProductoAsociado;
+
+    let u = candidato.toUpperCase().replace(/[\s-]+/g, '_');
+    if (u === 'COMPRAVENTA') u = 'COMPRA_VENTA';
+    if (u === 'COMPRA_VENTA') return 'COMPRA_VENTA' as ProductoAsociado;
+    if (u === 'POSTURAS')     return 'POSTURAS' as ProductoAsociado;
+    return null;
+  }
+
+  // ===== Utilidad: leer texto de error del back (string / Blob / objeto)
+  private async extraerMensajeErrorAsync(err: unknown): Promise<string> {
+    const h = err as HttpErrorResponse;
+
+    // Cuerpo como string
+    if (typeof h?.error === 'string' && h.error.trim()) {
+      return h.error.trim();
+    }
+
+    // Cuerpo como Blob (típico cuando el back manda text/plain)
+    if (h?.error instanceof Blob) {
+      try {
+        const text = await h.error.text();
+        if (text && text.trim()) return text.trim();
+      } catch {}
+    }
+
+    // Cuerpo como objeto con message/error
+    if (h?.error && typeof h.error === 'object') {
+      const maybe = (h.error as any).message ?? (h.error as any).error;
+      if (typeof maybe === 'string' && maybe.trim()) return maybe.trim();
+    }
+
+    // Fallback legible
+    if (typeof h?.message === 'string' && h.message) return h.message;
+    return 'No fue posible completar la operación.';
+  }
+
+  // ===== Envío
+  async aplicarConfiguracion() {
+    const codigoDetectado = this.resolverCodigoProductoDesdeDom();
+    if (codigoDetectado) this.productoAsociado = codigoDetectado;
+
     this.errorMsg = '';
     this.errorNombreExiste = false;
     this.errorProductoAsociado = false;
@@ -194,16 +313,8 @@ export class Step1DatosGenerales implements OnInit {
       return;
     }
 
-    if (this.nombreEstrategia.trim().toLowerCase() === 'estrategia por horarios') {
-      this.errorNombreExiste = true;
-      this.guardarEnStorage();
-      return;
-    }
-
-    this.loading = true;
-
-    setTimeout(() => {
-      this.loading = false;
+    // Edición: no volver a crear
+    if (this.idEstrategia != null) {
       this.guardarEnStorage();
       this.markProgress();
 
@@ -214,26 +325,63 @@ export class Step1DatosGenerales implements OnInit {
         try { localStorage.removeItem(K_JUMP_TO_STEP); } catch {}
       }
 
-      // Mantén el @Output (no estorba)
       this.avanzarStep.emit();
-
-      // *** CLAVE: NO navegar directo. Disparar evento global como en otros steps ***
-      try {
-        window.dispatchEvent(new CustomEvent('wizard:next-step', {
-          detail: { from: 'step1-datos-generales' }
-        }));
-      } catch {}
-
+      try { window.dispatchEvent(new CustomEvent('wizard:next-step', { detail: { from: 'step1-datos-generales' } })); } catch {}
       this.capturarSnapshotPrevio();
-    }, 500);
 
-    // Backend futuro (se deja como referencia)
-    /*
-    this.http.post<{ ok: boolean; error?: string }>('http://localhost:8080/api/estrategias', {...})
-      .subscribe({...});
-    */
+      /* ===== FUTURO PATCH (cuando el back lo publique) =====
+      const payloadActualizacion: DatosGeneralesRequest & { idEstrategia: number } = {
+        idEstrategia: this.idEstrategia,
+        nombre: this.nombreEstrategia.trim(),
+        descripcion: this.descripcion.trim(),
+        productoAsociado: this.productoAsociado as ProductoAsociado,
+        modoOperacion: 'HORARIOS'
+      };
+      // this.estrategiasApi.patchDatosGenerales(payloadActualizacion).subscribe(...);
+      ======================================================= */
+      return;
+    }
+
+    // Alta inicial
+    const payload: DatosGeneralesRequest = {
+      nombre: this.nombreEstrategia.trim(),
+      descripcion: this.descripcion.trim(),
+      productoAsociado: this.productoAsociado as ProductoAsociado,
+      modoOperacion: 'HORARIOS' as ModoOperacion
+    };
+
+    this.loading = true;
+
+    try {
+      const resp: any = await lastValueFrom(this.estrategiasApi.postDatosGenerales(payload));
+      const nuevoId = Number(resp?.idEstrategia);
+      if (!Number.isFinite(nuevoId)) {
+        throw new Error('Respuesta inválida del servidor (sin idEstrategia)');
+      }
+      this.idEstrategia = nuevoId;
+
+      this.guardarEnStorage();
+      this.markProgress();
+      try { localStorage.removeItem(K_JUMP_TO_STEP); } catch {}
+
+      this.avanzarStep.emit();
+      try { window.dispatchEvent(new CustomEvent('wizard:next-step', { detail: { from: 'step1-datos-generales' } })); } catch {}
+      this.capturarSnapshotPrevio();
+    } catch (e) {
+      // <<< Mostrar texto del backend en pantalla >>>
+      const mensaje = await this.extraerMensajeErrorAsync(e);
+      this.errorMsg = mensaje;
+
+      // Marca específica si el texto sugiere duplicado de nombre
+      if (/nombre.*(ya ).*exist/i.test(mensaje) || /registrad/i.test(mensaje)) {
+        this.errorNombreExiste = true;
+      }
+    } finally {
+      this.loading = false;
+    }
   }
 
+  // ===== Limpieza
   resetCampos() {
     this.nombreEstrategia = '';
     this.productoAsociado = '';
@@ -248,7 +396,6 @@ export class Step1DatosGenerales implements OnInit {
     this.guardarEnStorage();
   }
 
-  // ===== Focus UI + modal en blur =====
   onNombreFocus()  { this.isNombreFocused = true; }
   onNombreBlur()   { this.isNombreFocused = false; this.mostrarOkSiEditYHayCambios(); }
   onProductoFocus(){ this.isProductoFocused = true; }
@@ -256,6 +403,5 @@ export class Step1DatosGenerales implements OnInit {
   onDescripcionFocus() { this.isDescripcionFocused = true; }
   onDescripcionBlur()  { this.isDescripcionFocused = false; this.mostrarOkSiEditYHayCambios(); }
 
-  // ===== Modal OK =====
   cerrarModalOk() { this.mostrarModalOk = false; }
 }

@@ -1,8 +1,9 @@
 <!-- apps/fxultra_admin_strategies_mf/src/app/crear-estrategia/step-wizard/step1-datos-generales/step1-datos-generales.html -->
-<!-- datos-generales.component.html — COMPLETO -->
+
 <div class="datos-generales-container">
-  <!-- ===== Campos principales ===== -->
+  <!-- ===== Sección: Campos principales ===== -->
   <div class="d-flex align-items-end mb-3" style="gap: 12px;">
+
     <div class="form-group" style="min-width:220px; position:relative;">
       <label
         for="nombre-estrategia"
@@ -12,10 +13,12 @@
       </label>
       <input
         id="nombre-estrategia"
+        name="nombreEstrategia"
         type="text"
         class="form-control"
         placeholder="Escribe nombre"
         [(ngModel)]="nombreEstrategia"
+        [ngModelOptions]="{standalone:true}"
         (input)="onNombreEstrategiaInput()"
         (focus)="onNombreFocus()"
         (blur)="onNombreBlur()"
@@ -25,7 +28,7 @@
         }"
         autocomplete="off"
         maxlength="50"
-      >
+      />
       <div *ngIf="errorNombreExiste" class="mensaje-error">
         <i class="fas fa-exclamation-circle"></i>
         <span class="strong">Nombre ya existe</span>, por favor modifica
@@ -47,21 +50,30 @@
       <div class="select-dropdown-wrapper">
         <select
           id="producto-asociado"
+          name="productoAsociado"
           class="form-control"
           [(ngModel)]="productoAsociado"
+          [ngModelOptions]="{standalone:true}"
           [ngClass]="{
             'input-error': errorProductoAsociado,
             'input-activo': isProductoFocused && !errorProductoAsociado
           }"
           (focus)="onProductoFocus()"
           (blur)="onProductoBlur()"
-          (change)="onProductoAsociadoChange()"
+          (change)="onProductoAsociadoChange($event)"
+          (ngModelChange)="onProductoAsociadoModelChange($event)"
         >
           <option disabled [selected]="productoAsociado === ''" value="">Selecciona producto</option>
+          <option *ngFor="let p of productosAsociados" [value]="p.codigo" [disabled]="!nombreEstrategiaValido">
+            {{ p.descripcion }}
+          </option>
+
+          <!-- ===== Opciones anteriores (comentadas) =====
           <option [disabled]="!nombreEstrategiaValido" value="Compra venta">Compra venta</option>
           <option [disabled]="!nombreEstrategiaValido" value="DPAS">DPAS</option>
           <option [disabled]="!nombreEstrategiaValido" value="Forwards">Forwards</option>
           <option [disabled]="!nombreEstrategiaValido" value="Posturas">Posturas</option>
+          -->
         </select>
         <span class="chevron-icon">
           <i class="fas fa-chevron-down"></i>
@@ -75,19 +87,20 @@
     </div>
   </div>
 
-  <!-- ===== Descripción ===== -->
+  <!-- ===== Sección: Descripción ===== -->
   <div class="form-group descripcion-estrategia-group" style="width: 462px;">
-    <label for="descripcion"
-      [ngStyle]="{ color: errorDescripcionVacia ? '#D22419' : '#000' }">
+    <label for="descripcion" [ngStyle]="{ color: errorDescripcionVacia ? '#D22419' : '#000' }">
       Descripción <span class="req">*</span>
     </label>
     <textarea
       id="descripcion"
+      name="descripcion"
       class="form-control"
       placeholder="Breve descripción de la estrategia que explica su configuración y en qué casos utilizarla."
       style="width: 100%; height: 85px; resize: none;"
       maxlength="250"
       [(ngModel)]="descripcion"
+      [ngModelOptions]="{standalone:true}"
       [ngClass]="{
         'input-error': errorDescripcionVacia,
         'input-activo': isDescripcionFocused && !errorDescripcionVacia
@@ -103,7 +116,7 @@
     <div *ngIf="!errorDescripcionVacia" class="mensaje-error-placeholder"></div>
   </div>
 
-  <!-- ===== Checkbox fijo ===== -->
+  <!-- ===== Sección: Checkbox fijo ===== -->
   <div class="operacion-horarios-group">
     <label class="operar-label">Tu estrategia necesita operar por:</label>
     <div class="checkbox-group">
@@ -115,13 +128,13 @@
     </div>
   </div>
 
-  <!-- ===== Error general ===== -->
+  <!-- ===== Sección: Error general ===== -->
   <div *ngIf="errorMsg" class="mensaje-error" style="margin-bottom: 6px;">
     <i class="fas fa-exclamation-circle"></i>
     {{ errorMsg }}
   </div>
 
-  <!-- ===== Acciones ===== -->
+  <!-- ===== Sección: Acciones ===== -->
   <div class="acciones">
     <button class="btn-principal" (click)="aplicarConfiguracion()" [disabled]="loading">
       Aplicar configuración
@@ -131,7 +144,7 @@
   <div class="progreso">Paso 1 de 7</div>
 </div>
 
-<!-- ===== Modal OK pequeño (solo cuando vienes de edición) ===== -->
+<!-- ===== Sección: Modal OK pequeño ===== -->
 <div class="modal-backdrop" *ngIf="mostrarModalOk" (click)="cerrarModalOk()"></div>
 <div
   class="modal-contenedor modal-ok-peq"

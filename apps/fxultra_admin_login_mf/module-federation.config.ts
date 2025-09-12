@@ -8,8 +8,6 @@ const config: ModuleFederationConfig = {
     './Routes': 'apps/fxultra_admin_login_mf/src/app/remote-entry/entry.routes.ts',
   },
 
-  // Muy importante: marcar MSAL como singleton aquí también, para
-  // que el remoto USE la instancia compartida del host (Shell).
   additionalShared: [
     {
       libraryName: '@azure/msal-browser',
@@ -21,7 +19,6 @@ const config: ModuleFederationConfig = {
     },
   ],
 
-  // Refuerzo (opcional pero recomendable) por si Nx añade defaults distintos.
   shared: (libraryName: string, defaultConfig: any) => {
     const singles = ['@azure/msal-browser', '@azure/msal-angular'];
     if (singles.includes(libraryName)) {

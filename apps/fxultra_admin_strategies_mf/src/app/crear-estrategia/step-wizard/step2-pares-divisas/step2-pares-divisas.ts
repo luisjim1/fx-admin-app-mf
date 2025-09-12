@@ -1,7 +1,17 @@
-// pares-divisas.component.ts
+// apps/fxultra_admin_strategies_mf/src/app/crear-estrategia/step-wizard/step2-pares-divisas/step2-pares-divisas.ts
 import { Component, OnInit, Output, EventEmitter, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Servicio y tipos (conexión backend)
+   ───────────────────────────────────────────────────────────────────────────── */
+import { EstrategiasApiService } from '../../../core/api/estrategias-api.service';
+import {
+  ParDivisaCatalogo,
+  ConfiguracionDivisasRequest,
+  ConfiguracionDivisasResponse,
+} from '../../../models/estrategias.datos-generales.types';
 
 interface ParDivisaStored {
   nombre: string;
@@ -12,6 +22,9 @@ interface ParDivisaStored {
   _isEditing?: boolean | null;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Constantes de almacenamiento y respaldo
+   ───────────────────────────────────────────────────────────────────────────── */
 const STORAGE_KEY         = 'wizard_pares_divisas';
 const STORAGE_KEY_LAST    = 'wizard_pares_divisas_last_selection';
 const K_PROGRESS          = 'wizard_progress';
@@ -20,7 +33,6 @@ const K_JUMP_TO_STEP      = 'wizard_jump_to_step';
 
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const STEP_PARES_INDEX = 1;
-const CATALOGO_BASE: string[] = ['USD/MXN','EUR/MXN','GBP/MXN','CHF/MXN','CAD/MXN','JPY/MXN'];
 
 @Component({
   selector: 'app-pares-divisas',
@@ -29,81 +41,139 @@ const CATALOGO_BASE: string[] = ['USD/MXN','EUR/MXN','GBP/MXN','CHF/MXN','CAD/MX
   styleUrls: ['./step2-pares-divisas.scss'],
   imports: [CommonModule, FormsModule],
 })
-
 export class ParesDivisasComponent implements OnInit {
-  // ===== Sección: Buscador / Dropdown =====
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Buscador / Dropdown
+     ─────────────────────────────────────────────────────────────────────────── */
   busqueda = '';
   dropdownAbierto = false;
   focoIndice = -1;
 
-  // ===== Sección: Catálogo y selección =====
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Catálogo y selección
+     ─────────────────────────────────────────────────────────────────────────── */
   catalogo: string[] = [];
   seleccionados: ParDivisaStored[] = [];
 
-  // ===== Sección: Flags de UI =====
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Flags de UI
+     ─────────────────────────────────────────────────────────────────────────── */
   showAlertaSinSeleccion = false;
   mostrarAlertaJPY = false;
   masivoActivo = false;
 
-  // ===== Sección: Mensajes globales =====
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Mensajes globales
+     ─────────────────────────────────────────────────────────────────────────── */
   mensajesValidacion: string[] = [];
 
-  // ===== Sección: Modal Monto masivo =====
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Modal Monto masivo
+     ─────────────────────────────────────────────────────────────────────────── */
   mostrarModalMasivo = false;
   montoMasivo: number | null = null;
   modalEdicion: string | null = null;
   modalErrorMsg: string | null = null;
 
-  // ===== Sección: Modal OK pequeño =====
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Modal OK pequeño
+     ─────────────────────────────────────────────────────────────────────────── */
   mostrarModalOk = false;
 
-  // ===== Sección: Modal Restablecer =====
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Modal Restablecer
+     ─────────────────────────────────────────────────────────────────────────── */
   mostrarModalRestablecer = false;
 
-  // ===== Sección: Modal Confirmar eliminación =====
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Modal Confirmar eliminación
+     ─────────────────────────────────────────────────────────────────────────── */
   mostrarModalConfirmDelete = false;
   aplicaSoloSeleccionadas = false;
   private pendientesEliminar: string[] = [];
 
-  // ===== Marca temporal para selección visual al eliminar una sola divisa =====
+  /* ───────────────────────────────────────────────────────────────────────────
+     Marca temporal para selección visual al eliminar una sola divisa
+     ─────────────────────────────────────────────────────────────────────────── */
   private tempSelectedForDelete: string | null = null;
 
-  // ===== Sección: Contexto edición / retorno =====
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Contexto edición / retorno
+     ─────────────────────────────────────────────────────────────────────────── */
   private isEditSession = false;
   private returnToStepIndex: number | null = null;
 
-  // ===== Sección: Snapshot previo =====
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Snapshot previo
+     ─────────────────────────────────────────────────────────────────────────── */
   private prevNombres = new Set<string>();
   private prevMontos = new Map<string, number>();
 
-  // ===== Sección: Tracking cambios de sesión =====
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Tracking cambios de sesión
+     ─────────────────────────────────────────────────────────────────────────── */
   private sessionAdded = new Set<string>();
   private sessionRemoved = new Set<string>();
 
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Estado de red
+     ─────────────────────────────────────────────────────────────────────────── */
+  cargandoCatalogo = false;
+  enviandoConfiguracion = false;
+
   @Output() avanzarStep = new EventEmitter<void>();
 
-  // ===== Sección: Validación =====
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Validación
+     ─────────────────────────────────────────────────────────────────────────── */
   private LIMITE_MAX = 99000000.00;
   private MINIMO = 1.00;
 
-  // ===== Exposición de estado al template (modal eliminar) =====
+  /* ───────────────────────────────────────────────────────────────────────────
+     Exposición de estado al template (modal eliminar)
+     ─────────────────────────────────────────────────────────────────────────── */
   get esEliminacionIndividual(): boolean { return this.pendientesEliminar.length === 1; }
   get nombreAEliminar(): string { return this.esEliminacionIndividual ? this.pendientesEliminar[0] : ''; }
 
-  // ==========================
-  // Ciclo de vida
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Ciclo de vida
+     ─────────────────────────────────────────────────────────────────────────── */
+  constructor(private api: EstrategiasApiService) {}
+
   ngOnInit(): void {
-    this.catalogo = this.ordenarPreferente(CATALOGO_BASE);
+    this.cargarCatalogoDesdeBack();
     this.detectarModoEdicion();
     this.cargarDesdeStorage();
     this.actualizarAlertaJPY();
     this.capturarSnapshotPrevio();
   }
 
-  // ==========================
-  // Modo edición y salto final
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Carga de catálogo desde backend (mapeo visual ↔ payload)
+     ─────────────────────────────────────────────────────────────────────────── */
+  private cargarCatalogoDesdeBack(): void {
+    this.cargandoCatalogo = true;
+    this.api.getParesDivisa().subscribe({
+      next: (lista: ParDivisaCatalogo[]) => {
+        // Soporta claveParDivisa (contrato inicial) o valor (contrato actual)
+        const nombres = (lista || [])
+          .map((p: any) => String(p?.claveParDivisa ?? p?.valor ?? '').trim())
+          .filter(Boolean)
+          .map(v => v.replace('/', '-').replace('-', '/')); // normaliza separador
+        const setUnicos = Array.from(new Set(nombres));
+        this.catalogo = this.ordenarPreferente(setUnicos);
+      },
+      error: (err: any) => {
+        this.addMensaje(typeof err?.message === 'string' && err.message ? err.message : 'No fue posible cargar los pares de divisa.');
+        this.catalogo = [];
+      },
+      complete: () => { this.cargandoCatalogo = false; }
+    });
+  }
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     Modo edición y salto final
+     ─────────────────────────────────────────────────────────────────────────── */
   private detectarModoEdicion(): void {
     let fromIndex: number | null = null;
     try {
@@ -133,18 +203,15 @@ export class ParesDivisasComponent implements OnInit {
     if (!this.isEditSession) return;
     try {
       if (this.returnToStepIndex != null) {
-        localStorage.setItem(
-          K_JUMP_TO_STEP,
-          JSON.stringify({ stepIndex: this.returnToStepIndex, ts: Date.now() })
-        );
+        localStorage.setItem(K_JUMP_TO_STEP, JSON.stringify({ stepIndex: this.returnToStepIndex, ts: Date.now() }));
       }
       localStorage.removeItem(K_RETURN_AFTER_EDIT);
     } catch {}
   }
 
-  // ==========================
-  // Snapshot para diffs
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Snapshot para diffs
+     ─────────────────────────────────────────────────────────────────────────── */
   private capturarSnapshotPrevio(): void {
     this.prevNombres.clear();
     this.prevMontos.clear();
@@ -173,9 +240,9 @@ export class ParesDivisasComponent implements OnInit {
     return { added, removed, montoChanged };
   }
 
-  // ==========================
-  // Listeners globales
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Listeners globales
+     ─────────────────────────────────────────────────────────────────────────── */
   @HostListener('document:click')
   onDocClick() { this.dropdownAbierto = false; this.focoIndice = -1; }
 
@@ -190,16 +257,14 @@ export class ParesDivisasComponent implements OnInit {
   @HostListener('paste', ['$event'])
   onPasteBlock(ev: ClipboardEvent) {
     const el = ev.target as HTMLElement | null;
-       if (!el) return;
-    const isMonto =
-      el.classList.contains('monto-input') ||
-      el.classList.contains('modal-input');
+    if (!el) return;
+    const isMonto = el.classList.contains('monto-input') || el.classList.contains('modal-input');
     if (isMonto) ev.preventDefault();
   }
 
-  // ==========================
-  // Orden y derivados
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Orden y derivados
+     ─────────────────────────────────────────────────────────────────────────── */
   private compararPares(a: string, b: string): number {
     const first = ['USD', 'EUR'];
     const aBase = this.baseDe(a);
@@ -219,9 +284,9 @@ export class ParesDivisasComponent implements OnInit {
     return this.ordenarPreferente(lista);
   }
 
-  // ==========================
-  // Buscador / Dropdown
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Buscador / Dropdown
+     ─────────────────────────────────────────────────────────────────────────── */
   abrirDropdown(): void { this.dropdownAbierto = true; this.focoIndice = -1; }
   cerrarDropdownConRetardo(): void { setTimeout(() => { this.dropdownAbierto = false; this.focoIndice = -1; }, 120); }
   onBuscarChange(): void { this.dropdownAbierto = true; this.focoIndice = -1; }
@@ -238,9 +303,9 @@ export class ParesDivisasComponent implements OnInit {
     }
   }
 
-  // ==========================
-  // Selección de pares
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Selección de pares
+     ─────────────────────────────────────────────────────────────────────────── */
   seleccionarPar(nombre: string): void {
     if (this.estaSeleccionado(nombre)) return;
     this.seleccionados.push({ nombre, seleccionado: true, montoMax: 0, _edicion: '0.00', _selected: false, _isEditing: false });
@@ -257,9 +322,9 @@ export class ParesDivisasComponent implements OnInit {
     if (this.isEditSession) this.mostrarOkPequenio();
   }
 
-  // ==========================
-  // Eliminar (confirmación / selección visual temporal)
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Eliminar (confirmación / selección visual temporal)
+     ─────────────────────────────────────────────────────────────────────────── */
   confirmarEliminar(row?: ParDivisaStored): void {
     const marcados = this.seleccionados.filter(p => p._selected).map(p => p.nombre);
     const hayMarcados = marcados.length;
@@ -323,13 +388,12 @@ export class ParesDivisasComponent implements OnInit {
   }
   onSelectRowChange(): void {
     if (this.showAlertaSinSeleccion && this.puedeAplicar()) this.showAlertaSinSeleccion = false;
-    // ===== Regla: si el usuario interactúa con checkboxes individuales, desactiva masivo
     this.desactivarMasivoPorInteraccion();
   }
 
-  // ==========================
-  // Validación y formato
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Validación y formato
+     ─────────────────────────────────────────────────────────────────────────── */
   private clearMensajes() { this.mensajesValidacion = []; }
   private addMensaje(m: string) { if (!this.mensajesValidacion.includes(m)) this.mensajesValidacion = [...this.mensajesValidacion, m]; }
 
@@ -399,9 +463,9 @@ export class ParesDivisasComponent implements OnInit {
     return 'Asigna un monto máximo de operación válido';
   }
 
-  // ==========================
-  // Caret estable
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Caret estable
+     ─────────────────────────────────────────────────────────────────────────── */
   private countDigits(text: string): number { let c = 0; for (const ch of text) if (ch >= '0' && ch <= '9') c++; return c; }
   private caretMetricsBeforeFormat(formattedText: string, caretIdx: number) {
     const decIdx = formattedText.indexOf('.');
@@ -434,9 +498,9 @@ export class ParesDivisasComponent implements OnInit {
     }
   }
 
-  // ==========================
-  // Sobrescritura de decimales en caret
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sobrescritura de decimales en caret
+     ─────────────────────────────────────────────────────────────────────────── */
   private overwriteDecimalAtCaret(prev: string, curr: string, caretAfter: number): { adjusted: string | null, newCaret: number | null } {
     const dot = prev.indexOf('.');
     if (dot === -1) return { adjusted: null, newCaret: null };
@@ -456,9 +520,9 @@ export class ParesDivisasComponent implements OnInit {
     return { adjusted: null, newCaret: null };
   }
 
-  // ==========================
-  // Edición por fila / bloque
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Edición por fila / bloque
+     ─────────────────────────────────────────────────────────────────────────── */
   iniciarEdicion(row: ParDivisaStored): void {
     const seleccionadosMarcados = this.seleccionados.filter(p => p._selected).length;
     if (seleccionadosMarcados > 1) {
@@ -473,7 +537,6 @@ export class ParesDivisasComponent implements OnInit {
     this.clearMensajes();
     const actual = row.montoMax ?? 0;
     row._edicion = this.formatearMoneda(actual);
-    // ===== Regla: cualquier edición individual desactiva el masivo
     this.desactivarMasivoPorInteraccion();
     setTimeout(() => {
       const el = this.encontrarInputDeFila(row);
@@ -512,8 +575,6 @@ export class ParesDivisasComponent implements OnInit {
 
     this.clearMensajes();
     this.guardarEnStorage();
-
-    // ===== Regla: edición manual desactiva el masivo
     this.desactivarMasivoPorInteraccion();
 
     if (huboCambio) this.setJumpBackIfEditing();
@@ -561,7 +622,6 @@ export class ParesDivisasComponent implements OnInit {
     const newCaret = this.caretIndexAfterFormat(str, metrics);
     try { target.setSelectionRange(newCaret, newCaret); } catch {}
 
-    // ===== Regla: al escribir en una fila, desactiva el masivo
     this.desactivarMasivoPorInteraccion();
   }
 
@@ -600,8 +660,6 @@ export class ParesDivisasComponent implements OnInit {
     }
 
     this.guardarEnStorage();
-
-    // ===== Regla: edición manual desactiva el masivo
     this.desactivarMasivoPorInteraccion();
 
     if (huboCambio) this.setJumpBackIfEditing();
@@ -618,9 +676,9 @@ export class ParesDivisasComponent implements OnInit {
     if (!this.montoValido(row.montoMax ?? null) && !row._isEditing) this.iniciarEdicion(row);
   }
 
-  // ==========================
-  // Modal Monto masivo
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Modal Monto masivo
+     ─────────────────────────────────────────────────────────────────────────── */
   get modalMontoValido(): boolean {
     const num = this.parseFormattedToNumber(this.modalEdicion || '');
     return this.montoValido(num);
@@ -648,7 +706,6 @@ export class ParesDivisasComponent implements OnInit {
 
   cerrarModalMasivo(aceptado: boolean): void {
     this.mostrarModalMasivo = false;
-    // ===== Regla: si se aceptó, el masivo permanece activo; si se canceló, se desactiva
     this.masivoActivo = !!aceptado;
     this.seleccionados = this.seleccionados.map(p => ({ ...p, _selected: false }));
     this.modalErrorMsg = null;
@@ -735,16 +792,13 @@ export class ParesDivisasComponent implements OnInit {
     this.guardarEnStorage();
 
     if (huboCambio) this.setJumpBackIfEditing();
-
-    // ===== Cierre del modal manteniendo masivo activo
     this.cerrarModalMasivo(true);
-
     if (huboCambio && this.isEditSession) this.mostrarOkPequenio();
   }
 
-  // ==========================
-  // Acciones globales
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Acciones globales
+     ─────────────────────────────────────────────────────────────────────────── */
   puedeAplicar(): boolean {
     if (!this.seleccionados.length) return false;
     return this.seleccionados.every(r => this.montoValido(r.montoMax ?? null));
@@ -770,43 +824,61 @@ export class ParesDivisasComponent implements OnInit {
       return;
     }
 
-    this.showAlertaSinSeleccion = false;
-    this.guardarEnStorage();
-
-    const { added, removed, montoChanged } = this.computarDiffActual();
-
-    if (this.isEditSession) {
-      try {
-        if (this.sessionAdded.size > 0 || added.length > 0) {
-          localStorage.removeItem(K_JUMP_TO_STEP);
-          localStorage.removeItem(K_RETURN_AFTER_EDIT);
-        } else {
-          if (this.returnToStepIndex != null) {
-            localStorage.setItem(
-              K_JUMP_TO_STEP,
-              JSON.stringify({ stepIndex: this.returnToStepIndex, ts: Date.now() })
-            );
-          }
-          localStorage.removeItem(K_RETURN_AFTER_EDIT);
-        }
-      } catch {}
+    const idRaw = localStorage.getItem('wizard_idEstrategia');
+    const idEstrategia = idRaw ? Number(idRaw) : NaN;
+    if (!idRaw || Number.isNaN(idEstrategia)) {
+      this.addMensaje('No se encontró el identificador de la estrategia. Regresa al Paso 1 y guarda los datos generales.');
+      return;
     }
 
-    this.sessionAdded.clear();
-       this.sessionRemoved.clear();
-    this.capturarSnapshotPrevio();
+    const payload: ConfiguracionDivisasRequest = {
+      idEstrategia,
+      divisas: this.seleccionados.map(s => ({
+        claveParDivisa: (s.nombre || '').replace('/', '-'),
+        montoMaximo: s.montoMax ?? 0
+      }))
+    };
 
-    this.avanzarStep.emit();
+    this.enviandoConfiguracion = true;
+    this.api.postConfiguracionDivisas(payload).subscribe({
+      next: (_resp: ConfiguracionDivisasResponse) => {
+        const { added } = this.computarDiffActual();
+        if (this.isEditSession) {
+          try {
+            if (this.sessionAdded.size > 0 || added.length > 0) {
+              localStorage.removeItem(K_JUMP_TO_STEP);
+              localStorage.removeItem(K_RETURN_AFTER_EDIT);
+            } else {
+              if (this.returnToStepIndex != null) {
+                localStorage.setItem(K_JUMP_TO_STEP, JSON.stringify({ stepIndex: this.returnToStepIndex, ts: Date.now() }));
+              }
+              localStorage.removeItem(K_RETURN_AFTER_EDIT);
+            }
+          } catch {}
+        }
 
-    // Fallback no invasivo para hosts sin @Output:
-    try {
-      window.dispatchEvent(new CustomEvent('wizard:next-step', { detail: { from: 'step2-pares-divisas' } }));
-    } catch {}
+        this.sessionAdded.clear();
+        this.sessionRemoved.clear();
+        this.capturarSnapshotPrevio();
+
+        this.avanzarStep.emit();
+        try {
+          window.dispatchEvent(new CustomEvent('wizard:next-step', { detail: { from: 'step2-pares-divisas' } }));
+        } catch {}
+      },
+      error: (err: any) => {
+        const msg = typeof err?.message === 'string' && err.message
+          ? err.message
+          : 'Ocurrió un error al guardar la configuración de divisas.';
+        this.addMensaje(msg);
+      },
+      complete: () => { this.enviandoConfiguracion = false; }
+    });
   }
 
-  // ==========================
-  // Restablecer
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Restablecer
+     ─────────────────────────────────────────────────────────────────────────── */
   abrirModalRestablecer(): void { this.mostrarModalRestablecer = true; }
   cerrarModalRestablecer(): void { this.mostrarModalRestablecer = false; }
 
@@ -845,9 +917,9 @@ export class ParesDivisasComponent implements OnInit {
     if (this.isEditSession) this.mostrarOkPequenio();
   }
 
-  // ==========================
-  // Persistencia
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Persistencia
+     ─────────────────────────────────────────────────────────────────────────── */
   private cargarDesdeStorage(): void {
     const raw = localStorage.getItem(STORAGE_KEY);
     let loaded = false;
@@ -904,9 +976,9 @@ export class ParesDivisasComponent implements OnInit {
     localStorage.setItem(STORAGE_KEY_LAST, JSON.stringify(nombres));
   }
 
-  // ==========================
-  // Utilidades
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Utilidades
+     ─────────────────────────────────────────────────────────────────────────── */
   private ordenarSeleccionados(): void {
     this.seleccionados = this.ordenarPreferente(this.seleccionados.map(s => s.nombre))
       .map(n => this.seleccionados.find(s => s.nombre === n)!)
@@ -914,15 +986,15 @@ export class ParesDivisasComponent implements OnInit {
   }
 
   private actualizarAlertaJPY(): void {
-    this.mostrarAlertaJPY = this.seleccionados.some(p => p.nombre === 'JPY/MXN');
+    this.mostrarAlertaJPY = this.seleccionados.some(p => p.nombre === 'JPY/MXN'); // solo cuando JPY es base
   }
 
   baseDe(par: string): string { return (par || '').split('/')[0] || ''; }
   trackPar = (_: number, r: ParDivisaStored) => r.nombre;
 
-  // ==========================
-  // Mensajería y entradas
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Mensajería y entradas
+     ─────────────────────────────────────────────────────────────────────────── */
   private mostrarOkPequenio(): void { this.mostrarModalOk = true; }
   cerrarModalOk(): void { this.mostrarModalOk = false; }
 
@@ -944,13 +1016,15 @@ export class ParesDivisasComponent implements OnInit {
     return { allow: true };
   }
 
-  // ==========================
-  // Regla: desactivar masivo por interacción individual
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Regla: desactivar masivo por interacción individual
+     ─────────────────────────────────────────────────────────────────────────── */
   private desactivarMasivoPorInteraccion(): void {
     this.masivoActivo = false;
   }
 }
 
-// ===== Export alias para entry.routes.ts =====
+/* ─────────────────────────────────────────────────────────────────────────────
+   Export alias para entry.routes.ts
+   ───────────────────────────────────────────────────────────────────────────── */
 export { ParesDivisasComponent as Step2ParesDivisas };
