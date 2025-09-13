@@ -1,8 +1,22 @@
-// fecha-liquidacion.component.ts — COMPLETO
-import { Component, EventEmitter, OnInit, Output, HostListener } from '@angular/core';
+// apps/fxultra_admin_strategies_mf/src/app/crear-estrategia/step-wizard/step4-fecha-liquidacion/step4-fecha-liquidacion.ts
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Imports
+   ───────────────────────────────────────────────────────────────────────────── */
+import { Component, EventEmitter, OnInit, Output, HostListener, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
+import { EstrategiasApiService } from '../../../core/api/estrategias-api.service';
+import {
+  FechaLiquidacionCatalogo,
+  FechaLiquidacion,
+  FechasLiquidacionRequest
+} from '../../../models/estrategias.datos-generales.types';
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Tipos locales
+   ───────────────────────────────────────────────────────────────────────────── */
 type OpcionKey = 'all' | 'today' | 'tom' | 'spot48' | '1d72';
 
 interface ParDivisaStored {
@@ -22,15 +36,29 @@ interface FilaFecha {
   _open?: boolean;
 }
 
+interface DivisaPaso2 {
+  claveParDivisa: string;
+  idDivisaEstrategia: number;
+  montoMaximo?: number;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Constantes y storage keys
+   ───────────────────────────────────────────────────────────────────────────── */
 const PARES_KEY           = 'wizard_pares_divisas';
 const STORAGE_KEY         = 'wizard_fecha_liquidacion';
 const K_PROGRESS          = 'wizard_progress';
 const K_RETURN_AFTER_EDIT = 'wizard_return_after_edit';
 const K_JUMP_TO_STEP      = 'wizard_jump_to_step';
+const K_ID_ESTRATEGIA     = 'wizard_idEstrategia';
+const K_STEP2_IDS         = 'wizard_step2_divisas_ids';
 
 const MAX_AGE_MS    = 24 * 60 * 60 * 1000;
 const STEP_FL_INDEX = 3;
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Componente
+   ───────────────────────────────────────────────────────────────────────────── */
 @Component({
   selector: 'app-fecha-liquidacion',
   standalone: true,
@@ -39,7 +67,7 @@ const STEP_FL_INDEX = 3;
   imports: [CommonModule, FormsModule],
 })
 export class FechaLiquidacionComponent implements OnInit {
-  /* ===== Sección: Datos de tabla y selección masiva ===== */
+  /* ── Estado de pantalla ───────────────────────────────────────────────────── */
   filas: FilaFecha[] = [];
   showAlertaSinSeleccion = false;
 
@@ -50,31 +78,50 @@ export class FechaLiquidacionComponent implements OnInit {
   modalJpySel = new Set<OpcionKey>();
   modalJPYEnabled = false;
 
-  /* ===== Sección: Modal OK pequeño ===== */
+  /* ── Modal OK ─────────────────────────────────────────────────────────────── */
   mostrarModalOk = false;
 
-  /* ===== Sección: Contexto de edición ===== */
+  /* ── Contexto de edición ─────────────────────────────────────────────────── */
   private isEditSession = false;
   private returnToStepIndex: number | null = null;
 
-  /* ===== Sección: Snapshot previo ===== */
+  /* ── Snapshot ─────────────────────────────────────────────────────────────── */
   private prevHash = new Map<string, string>();
+
+  /* ── Backend ──────────────────────────────────────────────────────────────── */
+  private api = inject(EstrategiasApiService);
+  private cdr = inject(ChangeDetectorRef);
+
+  catalogoFechas: FechaLiquidacionCatalogo[] = [];
+  private permitidasGenerales: OpcionKey[] = ['today', 'tom', 'spot48', '1d72'];
+  private permitidasJPY: OpcionKey[] = ['spot48', '1d72'];
 
   @Output() avanzarStep = new EventEmitter<void>();
 
-  // ==========================
-  // Ciclo de vida
-  // ==========================
-  ngOnInit(): void {
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Ciclo de vida
+     ─────────────────────────────────────────────────────────────────────────── */
+  async ngOnInit(): Promise<void> {
     this.detectarModoEdicion();
     this.cargarDesdeStorage();
+
+    try {
+      const cat = await this.api.getFechasLiquidacion().toPromise();
+      if (Array.isArray(cat) && cat.length) {
+        this.catalogoFechas = cat;
+        this.calibrarOpcionesDesdeCatalogo();
+        this.normalizarSegunCatalogo();
+        this.cdr.detectChanges();
+      }
+    } catch {}
+
     this.capturarSnapshotPrevio();
     this.touchStorage();
   }
 
-  // ==========================
-  // Listeners globales
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Listeners globales
+     ─────────────────────────────────────────────────────────────────────────── */
   @HostListener('document:click', ['$event'])
   onDocClick(ev: MouseEvent) {
     const el = ev.target as HTMLElement;
@@ -89,9 +136,9 @@ export class FechaLiquidacionComponent implements OnInit {
     }
   }
 
-  // ==========================
-  // Detección de edición
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Detección de edición
+     ─────────────────────────────────────────────────────────────────────────── */
   private detectarModoEdicion(): void {
     let fromIndex: number | null = null;
     try {
@@ -119,15 +166,34 @@ export class FechaLiquidacionComponent implements OnInit {
     this.isEditSession = this.returnToStepIndex != null && this.returnToStepIndex > STEP_FL_INDEX;
   }
 
-  // ==========================
-  // Opciones por tipo de par
-  // ==========================
-  private opcionesGenerales(): OpcionKey[] { return ['today', 'tom', 'spot48', '1d72']; }
-  private opcionesJPY(): OpcionKey[] { return ['spot48', '1d72']; }
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Opciones por tipo de par
+     ─────────────────────────────────────────────────────────────────────────── */
+  private opcionesGenerales(): OpcionKey[] { return this.permitidasGenerales.length ? [...this.permitidasGenerales] : ['today','tom','spot48','1d72']; }
+  private opcionesJPY(): OpcionKey[] { return this.permitidasJPY.length ? [...this.permitidasJPY] : ['spot48','1d72']; }
 
-  // ==========================
-  // Dropdown por fila
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Cómputos de selección
+     ─────────────────────────────────────────────────────────────────────────── */
+  tieneTodas(row: FilaFecha): boolean {
+    const permitidas = row.esJPY ? this.opcionesJPY() : this.opcionesGenerales();
+    const set = new Set(row.seleccion);
+    return permitidas.length > 0 && permitidas.every(k => set.has(k));
+  }
+
+  private etiqueta(k: OpcionKey): string {
+    switch (k) {
+      case 'today':  return 'Today';
+      case 'tom':    return 'TOM';
+      case 'spot48': return 'SPOT (48h)';
+      case '1d72':   return '1D (72h)';
+      default:       return '';
+    }
+  }
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Dropdown por fila
+     ─────────────────────────────────────────────────────────────────────────── */
   toggleMenu(row: FilaFecha) {
     this.filas.forEach(f => { if (f !== row) f._open = false; });
     row._open = !row._open;
@@ -135,23 +201,20 @@ export class FechaLiquidacionComponent implements OnInit {
   }
 
   isSeleccionado(row: FilaFecha, key: OpcionKey | 'all'): boolean {
-    if (key === 'all') {
-      const permitidas = row.esJPY ? this.opcionesJPY() : this.opcionesGenerales();
-      return permitidas.every(k => row.seleccion.includes(k));
-    }
+    if (key === 'all') return this.tieneTodas(row);
     return row.seleccion.includes(key as OpcionKey);
   }
 
-  // ==========================
-  // Cambios por fila
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Cambios por fila
+     ─────────────────────────────────────────────────────────────────────────── */
   toggleOpcion(row: FilaFecha, key: OpcionKey | 'all') {
     const antes = this.hashFila(row);
 
     if (key === 'all') {
       const permitidas = row.esJPY ? this.opcionesJPY() : this.opcionesGenerales();
-      const isAll = permitidas.every(k => row.seleccion.includes(k));
-      row.seleccion = isAll ? [] : [...permitidas];
+      const completo = this.tieneTodas(row);
+      row.seleccion = completo ? [] : [...permitidas];
     } else {
       const sel = new Set(row.seleccion);
       sel.has(key) ? sel.delete(key) : sel.add(key);
@@ -166,10 +229,11 @@ export class FechaLiquidacionComponent implements OnInit {
     }
 
     row._open = false;
-    this.guardarEnStorage();
+    this.filas = this.filas.map(f => (f === row ? { ...row } : f));
 
-    // ===== Desactivar masivo por interacción individual
+    this.guardarEnStorage();
     this.desactivarMasivoPorInteraccion();
+    this.cdr.detectChanges();
 
     const despues = this.hashFila(row);
     if (this.isEditSession && antes !== despues) this.mostrarOkPequenio();
@@ -177,39 +241,30 @@ export class FechaLiquidacionComponent implements OnInit {
 
   onSelectRowChange(_: FilaFecha): void {
     this.guardarEnStorage();
-    // ===== Desactivar masivo al marcar/desmarcar filas
     this.desactivarMasivoPorInteraccion();
   }
 
   resumenSeleccion(row: FilaFecha): string {
     if (!row?.seleccion?.length) return '';
-    const orden = row.esJPY ? this.opcionesJPY() : this.opcionesGenerales();
-    const esTodo = orden.every(k => row.seleccion.includes(k));
-    if (esTodo) return 'Todas las fechas';
+    if (this.tieneTodas(row)) return 'Todas las fechas';
 
-    const label = (k: OpcionKey): string => {
-      switch (k) {
-        case 'today':  return 'Today';
-        case 'tom':    return 'TOM';
-        case 'spot48': return 'SPOT (48h)';
-        case '1d72':   return '1D (72h)';
-        default:       return '';
-      }
-    };
-    const set = new Set(row.seleccion);
-    const ordenadas = orden.filter(k => set.has(k));
-    return ordenadas.map(label).filter(Boolean).join(', ');
+    const orden = row.esJPY ? this.opcionesJPY() : this.opcionesGenerales();
+    const setSel = new Set(row.seleccion);
+    const enOrden = orden.filter(k => setSel.has(k));
+    const extras  = row.seleccion.filter(k => !orden.includes(k));
+    const final   = [...enOrden, ...extras];
+
+    return final.map(k => this.etiqueta(k)).filter(Boolean).join(', ');
   }
 
   get tieneJPY(): boolean { return this.filas.some(f => f.esJPY); }
 
-  // ==========================
-  // Modal masivo
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Modal masivo
+     ─────────────────────────────────────────────────────────────────────────── */
   abrirModalMasivo(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (input.checked) {
-      // Al abrir, marcar filas seleccionadas (igual que en Pares de divisas)
       this.filas = this.filas.map(f => ({ ...f, _selected: true }));
       this.masivo.activo = true;
       this.modalGeneralSel = new Set<OpcionKey>();
@@ -230,51 +285,44 @@ export class FechaLiquidacionComponent implements OnInit {
 
   cerrarModalMasivo(aceptado: boolean): void {
     this.mostrarModalMasivo = false;
-    // Mantener masivo activo solo si se aceptó; limpiar selección visual
     this.masivo.activo = !!aceptado;
     this.filas = this.filas.map(f => ({ ...f, _selected: false }));
     this.guardarEnStorage();
   }
 
-  // ==========================
-  // Selección en modal
-  // ==========================
-  isGenSel(key: OpcionKey | 'all'): boolean {
-    if (key === 'all') {
-      const permitidas = this.opcionesGenerales();
-      return permitidas.every(k => this.modalGeneralSel.has(k));
-    }
-    return this.modalGeneralSel.has(key as OpcionKey);
+  isGenSel(key: OpcionKey): boolean { return this.modalGeneralSel.has(key); }
+  isJpySel(key: OpcionKey): boolean { return this.modalJpySel.has(key); }
+  isGenAll(): boolean {
+    const permitidas = this.opcionesGenerales();
+    return permitidas.length > 0 && permitidas.every(k => this.modalGeneralSel.has(k));
   }
+  isJpyAll(): boolean {
+    const permitidas = this.opcionesJPY();
+    return permitidas.length > 0 && permitidas.every(k => this.modalJpySel.has(k));
+  }
+
   toggleGen(key: OpcionKey | 'all'): void {
     if (key === 'all') {
       const permitidas = this.opcionesGenerales();
-      const isAll = permitidas.every(k => this.modalGeneralSel.has(k));
-      this.modalGeneralSel = new Set(isAll ? [] : permitidas);
+      this.modalGeneralSel = this.isGenAll() ? new Set<OpcionKey>() : new Set<OpcionKey>(permitidas);
     } else {
       const s = new Set(this.modalGeneralSel);
       s.has(key) ? s.delete(key) : s.add(key);
       this.modalGeneralSel = s;
     }
+    this.cdr.detectChanges();
   }
 
-  isJpySel(key: OpcionKey | 'all'): boolean {
-    if (key === 'all') {
-      const permitidas = this.opcionesJPY();
-      return permitidas.every(k => this.modalJpySel.has(k));
-    }
-    return this.modalJpySel.has(key as OpcionKey);
-  }
   toggleJpy(key: OpcionKey | 'all'): void {
     if (key === 'all') {
       const permitidas = this.opcionesJPY();
-      const isAll = permitidas.every(k => this.modalJpySel.has(k));
-      this.modalJpySel = new Set(isAll ? [] : permitidas);
+      this.modalJpySel = this.isJpyAll() ? new Set<OpcionKey>() : new Set<OpcionKey>(permitidas);
     } else {
       const s = new Set(this.modalJpySel);
       s.has(key) ? s.delete(key) : s.add(key);
       this.modalJpySel = s;
     }
+    this.cdr.detectChanges();
   }
 
   aplicarModalMasivo(): void {
@@ -296,40 +344,53 @@ export class FechaLiquidacionComponent implements OnInit {
 
     this.showAlertaSinSeleccion = false;
     this.guardarEnStorage();
-
-    // Cierre manteniendo masivo activo
     this.cerrarModalMasivo(true);
+    this.cdr.detectChanges();
 
     const after = this.hashGlobal();
     if (this.isEditSession && before !== after) this.mostrarOkPequenio();
   }
 
-  // ==========================
-  // Acciones globales
-  // ==========================
-  aplicarConfiguracion() {
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Acciones globales (POST)
+     ─────────────────────────────────────────────────────────────────────────── */
+  async aplicarConfiguracion() {
+    this.filas = this.filas.map(f => ({ ...f, seleccion: Array.isArray(f.seleccion) ? f.seleccion : [] }));
+
     if (this.filas.some(f => !f.seleccion || f.seleccion.length === 0)) {
       this.showAlertaSinSeleccion = true;
+      this.cdr.detectChanges();
       return;
     }
     this.showAlertaSinSeleccion = false;
-
     this.guardarEnStorage();
+
+    const idEstrategia = this.leerIdEstrategia();
+    const divisasPaso2 = this.leerDivisasPaso2();
+
+    if (idEstrategia && divisasPaso2.length) {
+      const req = this.armarPayloadPost(idEstrategia, divisasPaso2);
+      if (req.fechasLiquidacionDivisas.length) {
+        try {
+          await this.api.postFechasLiquidacion(req).toPromise();
+          this.mostrarOkPequenio();
+        } catch (e) {
+          console.error('Error al registrar fechas de liquidación', e);
+          return;
+        }
+      }
+    }
 
     try { localStorage.removeItem(K_JUMP_TO_STEP); } catch {}
 
     if (this.isEditSession && this.returnToStepIndex != null) {
       try {
-        localStorage.setItem(
-          K_JUMP_TO_STEP,
-          JSON.stringify({ stepIndex: this.returnToStepIndex, ts: Date.now() })
-        );
+        localStorage.setItem(K_JUMP_TO_STEP, JSON.stringify({ stepIndex: this.returnToStepIndex, ts: Date.now() }));
       } catch {}
     }
 
     this.avanzarStep.emit();
 
-    /* ===== Fallback global para avanzar (igual que Step 3) ===== */
     try {
       window.dispatchEvent(new CustomEvent('wizard:next-step', { detail: { from: 'step4-fecha-liquidacion' } }));
     } catch {}
@@ -342,59 +403,72 @@ export class FechaLiquidacionComponent implements OnInit {
     this.filas = this.filas.map(f => ({ ...f, seleccion: [], _selected: false, _open: false }));
     localStorage.removeItem(STORAGE_KEY);
     this.guardarEnStorage();
+    this.cdr.detectChanges();
   }
 
-  // ==========================
-  // Persistencia
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Persistencia
+     ─────────────────────────────────────────────────────────────────────────── */
   private cargarDesdeStorage(): void {
     const pares = this.leerParesSeleccionados();
 
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        const age = Date.now() - (parsed.timestamp ?? 0);
-        if (age < MAX_AGE_MS && Array.isArray(parsed.filas)) {
-          const byKey = new Map<string, OpcionKey[]>();
-          const byId  = new Map<number, OpcionKey[]>();
-          const byNom = new Map<string, OpcionKey[]>();
-          for (const f of parsed.filas) {
-            if (f?.parKey) byKey.set(String(f.parKey), (f.seleccion ?? []) as OpcionKey[]);
-            if (Number.isFinite(f?.parId)) byId.set(Number(f.parId), (f.seleccion ?? []) as OpcionKey[]);
-            if (typeof f?.parNombre === 'string') byNom.set(f.parNombre, (f.seleccion ?? []) as OpcionKey[]);
-          }
+    const parsed = raw ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : null;
 
-          this.filas = pares.map(p => {
-            const id  = (p.id ?? p.parId ?? null) as number | null;
-            const key = this.keyFor(p);
-            const nombre = this.nombrePar(p);
-            const esJPY = this.esJPY(p);
+    const tieneFilasGuardadas = parsed && Array.isArray(parsed.filas);
+    const norm = (s: string) => String(s ?? '').toUpperCase().trim();
 
-            const sel = byKey.get(key)
-              ?? (id !== null ? byId.get(id) : undefined)
-              ?? byNom.get(nombre)
-              ?? [];
+    if (tieneFilasGuardadas) {
+      const byKey = new Map<string, OpcionKey[]>();
+      const byId  = new Map<number, OpcionKey[]>();
+      const byNom = new Map<string, OpcionKey[]>();
 
-            return {
-              parId: id,
-              parKey: key,
-              parNombre: nombre,
-              esJPY,
-              seleccion: sel,
-              _selected: false,
-              _open: false
-            };
-          });
-          return;
-        } else {
-          localStorage.removeItem(STORAGE_KEY);
-        }
-      } catch {
-        localStorage.removeItem(STORAGE_KEY);
+      for (const f of parsed.filas) {
+        const sel = (Array.isArray(f?.seleccion) ? f.seleccion : []) as OpcionKey[];
+        if (f?.parKey) byKey.set(norm(f.parKey), sel);
+        if (Number.isFinite(f?.parId)) byId.set(Number(f.parId), sel);
+        if (typeof f?.parNombre === 'string') byNom.set(norm(f.parNombre), sel);
+      }
+
+      if (pares.length) {
+        this.filas = pares.map(p => {
+          const id      = (p.id ?? p.parId ?? null) as number | null;
+          const parKey  = this.keyFor(p);
+          const parNom  = this.nombrePar(p);
+          const esJPY   = this.esJPY(p);
+
+          const sel = byKey.get(norm(parKey))
+            ?? (id !== null ? byId.get(id) : undefined)
+            ?? byNom.get(norm(parNom))
+            ?? [];
+
+          return {
+            parId: id,
+            parKey,
+            parNombre: parNom,
+            esJPY,
+            seleccion: sel,
+            _selected: false,
+            _open: false
+          };
+        });
+        return;
+      } else {
+        // Fallback: sin pares disponibles, rehidratar tal cual lo guardado
+        this.filas = parsed.filas.map((f: any) => ({
+          parId: Number.isFinite(f?.parId) ? Number(f.parId) : null,
+          parKey: String(f?.parKey ?? '—'),
+          parNombre: String(f?.parNombre ?? '—'),
+          esJPY: !!f?.esJPY || String(f?.parKey ?? '').includes('JPY'),
+          seleccion: Array.isArray(f?.seleccion) ? (f.seleccion as OpcionKey[]) : [],
+          _selected: false,
+          _open: false
+        })) as FilaFecha[];
+        return;
       }
     }
 
+    // Inicial vacío tomando pares del paso 2
     this.filas = pares.map(p => ({
       parId: (p.id ?? p.parId ?? null) as number | null,
       parKey: this.keyFor(p),
@@ -429,9 +503,9 @@ export class FechaLiquidacionComponent implements OnInit {
     this.guardarEnStorage();
   }
 
-  // ==========================
-  // Utilidades
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Utilidades
+     ─────────────────────────────────────────────────────────────────────────── */
   private leerParesSeleccionados(): ParDivisaStored[] {
     const raw = localStorage.getItem(PARES_KEY);
     if (!raw) return [];
@@ -439,6 +513,21 @@ export class FechaLiquidacionComponent implements OnInit {
       const arr = JSON.parse(raw) as any;
       const lista: ParDivisaStored[] = Array.isArray(arr) ? arr : (arr?.pares ?? []);
       return lista.filter(x => x.seleccionado !== false);
+    } catch { return []; }
+  }
+
+  private leerIdEstrategia(): number | null {
+    const raw = localStorage.getItem(K_ID_ESTRATEGIA);
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  private leerDivisasPaso2(): DivisaPaso2[] {
+    const raw = localStorage.getItem(K_STEP2_IDS);
+    if (!raw) return [];
+    try {
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr.filter(x => Number.isFinite(x?.idDivisaEstrategia)) : [];
     } catch { return []; }
   }
 
@@ -480,27 +569,84 @@ export class FechaLiquidacionComponent implements OnInit {
     for (const f of this.filas) this.prevHash.set(f.parKey, this.hashFila(f));
   }
 
-  private huboCambios(): boolean {
-    for (const f of this.filas) {
-      const prev = this.prevHash.get(f.parKey) ?? '';
-      if (this.hashFila(f) !== prev) return true;
-    }
-    return false;
+  private normalizarClave(clave: string): string {
+    return String(clave || '').toUpperCase().replace(/\//g, '-').trim();
   }
 
-  // ==========================
-  // Modal OK
-  // ==========================
+  private uiAFechaBack(k: OpcionKey): FechaLiquidacion | null {
+    switch (k) {
+      case 'today':  return 'TODAY';
+      case 'tom':    return 'TOM';
+      case 'spot48': return 'SPOT';
+      case '1d72':   return 'ONE_D';
+      default:       return null;
+    }
+  }
+
+  private calibrarOpcionesDesdeCatalogo(): void {
+    const set = new Set(this.catalogoFechas.map(c => c.codigo));
+    const m = (c: FechaLiquidacion): OpcionKey | null => {
+      switch (c) {
+        case 'TODAY': return 'today';
+        case 'TOM':   return 'tom';
+        case 'SPOT':  return 'spot48';
+        case 'ONE_D': return '1d72';
+      }
+    };
+    const all = (['TODAY','TOM','SPOT','ONE_D'] as FechaLiquidacion[])
+      .filter(c => set.has(c))
+      .map(m)
+      .filter(Boolean) as OpcionKey[];
+
+    this.permitidasGenerales = [...all];
+
+    const jpyPref = ['spot48','1d72'] as OpcionKey[];
+    this.permitidasJPY = jpyPref.filter(k => all.includes(k));
+    if (!this.permitidasJPY.length) this.permitidasJPY = [...all];
+  }
+
+  private normalizarSegunCatalogo(): void {
+    const genSet = new Set(this.permitidasGenerales);
+    const jpySet = new Set(this.permitidasJPY);
+
+    this.filas = this.filas.map(f => {
+      const permitidas = f.esJPY ? jpySet : genSet;
+      const nueva = f.seleccion.filter(k => permitidas.has(k));
+      return { ...f, seleccion: nueva };
+    });
+
+    this.guardarEnStorage();
+  }
+
+  private armarPayloadPost(idEstrategia: number, divisasPaso2: DivisaPaso2[]): FechasLiquidacionRequest {
+    const mapaIdPorClave = new Map<string, number>();
+    for (const d of divisasPaso2) {
+      const k = this.normalizarClave(d.claveParDivisa);
+      mapaIdPorClave.set(k, d.idDivisaEstrategia);
+    }
+
+    const fechasLiquidacionDivisas = this.filas.map(f => {
+      const clave = this.normalizarClave(f.parKey);
+      const idDivisa = f.parId ?? mapaIdPorClave.get(clave) ?? null;
+      const fechasLiquidacion = f.seleccion
+        .map(k => this.uiAFechaBack(k))
+        .filter(Boolean) as FechaLiquidacion[];
+
+      if (idDivisa == null || !fechasLiquidacion.length) return null;
+      return { idDivisaEstrategia: idDivisa, fechasLiquidacion };
+    }).filter(Boolean) as FechasLiquidacionRequest['fechasLiquidacionDivisas'];
+
+    return { idEstrategia, fechasLiquidacionDivisas };
+  }
+
   private mostrarOkPequenio(): void { this.mostrarModalOk = true; }
   cerrarModalOk(): void { this.mostrarModalOk = false; }
 
-  // ==========================
-  // Regla: desactivar masivo por interacción individual
-  // ==========================
-  private desactivarMasivoPorInteraccion(): void {
-    this.masivo.activo = false;
-  }
+  private desactivarMasivoPorInteraccion(): void { this.masivo.activo = false; }
 }
 
-export { FechaLiquidacionComponent as Step4FechaLiquidaciON } from './step4-fecha-liquidacion';
-export { FechaLiquidacionComponent as Step4FechaLiquidacion };
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Export nominal para lazy-load
+   ───────────────────────────────────────────────────────────────────────────── */
+export const Step4FechaLiquidacion  = FechaLiquidacionComponent;
+export const Step4FechaLiquidaciON  = FechaLiquidacionComponent;

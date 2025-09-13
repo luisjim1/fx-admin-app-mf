@@ -1,8 +1,22 @@
-// sentido-operacion.component.ts — COMPLETO (mantiene toda tu lógica; agrega fallback global al aplicar)
-import { Component, EventEmitter, Output, OnInit, HostListener } from '@angular/core';
+// apps/fxultra_admin_strategies_mf/src/app/crear-estrategia/step-wizard/step3-sentido-operacion/step3-sentido-operacion.ts
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Imports
+   ───────────────────────────────────────────────────────────────────────────── */
+import { Component, EventEmitter, Output, OnInit, HostListener, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
+import { EstrategiasApiService } from '../../../core/api/estrategias-api.service';
+import {
+  ListadoSentidoOperacionDivisaRequest,
+  SentidoOperacion,
+  SentidoOperacionCatalogo
+} from '../../../models/estrategias.datos-generales.types';
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Tipos locales
+   ───────────────────────────────────────────────────────────────────────────── */
 type Sentido = '' | 'ambos' | 'compra' | 'venta';
 
 interface ParDivisaStored {
@@ -21,17 +35,30 @@ interface FilaSentido {
   _open?: boolean;
 }
 
-/* ===== Storage keys & constantes ===== */
+interface DivisaPaso2 {
+  claveParDivisa: string;
+  idDivisaEstrategia: number;
+  montoMaximo?: number;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Constantes y storage keys
+   ───────────────────────────────────────────────────────────────────────────── */
 const PARES_KEY            = 'wizard_pares_divisas';
 const STORAGE_KEY          = 'wizard_sentido_operacion';
 const K_PROGRESS           = 'wizard_progress';
 const K_RETURN_AFTER_EDIT  = 'wizard_return_after_edit';
 const K_JUMP_TO_STEP       = 'wizard_jump_to_step';
+const K_ID_ESTRATEGIA      = 'wizard_idEstrategia';
+const K_STEP2_IDS          = 'wizard_step2_divisas_ids';
 
 const MAX_AGE_MS           = 24 * 60 * 60 * 1000;
 const STEP_SENTIDO_INDEX   = 2;
 const STEP_SPREADS_INDEX   = 5;
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Componente
+   ───────────────────────────────────────────────────────────────────────────── */
 @Component({
   selector: 'app-sentido-operacion',
   standalone: true,
@@ -40,40 +67,79 @@ const STEP_SPREADS_INDEX   = 5;
   imports: [CommonModule, FormsModule]
 })
 export class SentidoOperacionComponent implements OnInit {
-  /* ===== Datos de tabla / modal masivo ===== */
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Estado de pantalla
+     ─────────────────────────────────────────────────────────────────────────── */
   filas: FilaSentido[] = [];
   masivo: { activo: boolean; valor: Sentido | null } = { activo: false, valor: null };
   mostrarModalMasivo = false;
   modalSentido: Sentido = '';
   showAlertaSinSeleccion = false;
 
-  /* ===== Modal OK pequeño ===== */
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Modal de confirmación
+     ─────────────────────────────────────────────────────────────────────────── */
   mostrarModalOk = false;
 
-  /* ===== Contexto de edición ===== */
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Contexto de edición
+     ─────────────────────────────────────────────────────────────────────────── */
   private isEditSession = false;
   private returnToStepIndex: number | null = null;
 
-  /* ===== Snapshot previo para detectar cambios ===== */
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Snapshot y baseline
+     ─────────────────────────────────────────────────────────────────────────── */
   private prevSentidos = new Map<string, Sentido>();
   private baselineHash = '';
 
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Backend
+     ─────────────────────────────────────────────────────────────────────────── */
+  private api = inject(EstrategiasApiService);
+  private enviando = false;
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Catálogo de sentidos (backend)
+     ─────────────────────────────────────────────────────────────────────────── */
+  catalogoSentidos: SentidoOperacionCatalogo[] = [];
+  private catalogoMapUi: Set<Sentido> = new Set(['ambos', 'compra', 'venta']);
+
   @Output() avanzarStep = new EventEmitter<void>();
 
-  // ==========================
-  // Ciclo de vida
-  // ==========================
-  ngOnInit(): void {
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Ciclo de vida
+     ─────────────────────────────────────────────────────────────────────────── */
+  async ngOnInit(): Promise<void> {
     this.detectarModoEdicion();
     this.cargarDesdeStorage();
+
+    // Catálogo de sentidos desde backend (siempre que esté disponible)
+    // Se mapea a los valores locales de UI y se normaliza el estado actual.
+    try {
+      const cat = await this.api.getSentidosOperacion().toPromise();
+      if (Array.isArray(cat) && cat.length) {
+        this.catalogoSentidos = cat;
+        this.catalogoMapUi = new Set(
+          cat
+            .map(c => this.backASentidoUi(c.codigo))
+            .filter((v): v is Sentido => v === 'ambos' || v === 'compra' || v === 'venta')
+        );
+        this.normalizarSegunCatalogo();
+      }
+    } catch {
+      // Si el catálogo no está listo en back, se continúa con los valores locales
+    }
+
     this.capturarSnapshotPrevio();
     this.baselineHash = this.calcularHashActual();
     this.touchStorage();
   }
 
-  // ==========================
-  // Detección de edición
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Detección de edición
+     ─────────────────────────────────────────────────────────────────────────── */
   private detectarModoEdicion(): void {
     let fromIndex: number | null = null;
 
@@ -102,13 +168,14 @@ export class SentidoOperacionComponent implements OnInit {
     this.isEditSession = this.returnToStepIndex != null && this.returnToStepIndex > STEP_SENTIDO_INDEX;
   }
 
-  // ==========================
-  // Snapshot / cambios
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Snapshot y cambios
+     ─────────────────────────────────────────────────────────────────────────── */
   private capturarSnapshotPrevio(): void {
     this.prevSentidos.clear();
     for (const f of this.filas) this.prevSentidos.set(f.parKey, f.sentido || '');
   }
+
   private huboCambios(): boolean {
     for (const f of this.filas) {
       const prev = this.prevSentidos.get(f.parKey) ?? '';
@@ -116,6 +183,7 @@ export class SentidoOperacionComponent implements OnInit {
     }
     return false;
   }
+
   private calcularHashActual(): string {
     const parts = this.filas
       .map(f => [String(f.parKey), String(f.sentido || '')] as [string, string])
@@ -123,20 +191,23 @@ export class SentidoOperacionComponent implements OnInit {
       .map(([k, v]) => `${k}:${v}`);
     return parts.join('|');
   }
-  private huboCambiosEstrictos(): boolean { return this.calcularHashActual() !== this.baselineHash; }
 
-  // ==========================
-  // Cierre de dropdowns global
-  // ==========================
+  private huboCambiosEstrictos(): boolean {
+    return this.calcularHashActual() !== this.baselineHash;
+  }
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Cierre global de menús
+     ─────────────────────────────────────────────────────────────────────────── */
   @HostListener('document:click', ['$event'])
   onDocClick(ev: MouseEvent) {
     const el = ev.target as HTMLElement;
     if (!el.closest('.select-sim')) this.filas.forEach(f => f._open = false);
   }
 
-  // ==========================
-  // Dropdown por fila
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Interacción por fila
+     ─────────────────────────────────────────────────────────────────────────── */
   toggleMenu(row: FilaSentido) {
     this.filas.forEach(f => { if (f !== row) f._open = false; });
     row._open = !row._open;
@@ -151,7 +222,6 @@ export class SentidoOperacionComponent implements OnInit {
     this.onSentidoChange(row);
     this.guardarEnStorage();
 
-    // ===== Sección: Desactiva masivo por interacción individual
     this.desactivarMasivoPorInteraccion();
 
     if (this.isEditSession && antes !== valor) this.mostrarOkPequenio();
@@ -172,8 +242,6 @@ export class SentidoOperacionComponent implements OnInit {
       this.masivo.valor = valor;
       this.filas = this.filas.map(f => ({ ...f, sentido: valor, _selected: false }));
       this.guardarEnStorage();
-
-      // ===== Sección: Desactiva masivo por interacción individual
       this.desactivarMasivoPorInteraccion();
       return;
     }
@@ -191,21 +259,38 @@ export class SentidoOperacionComponent implements OnInit {
 
   onSelectRowChange(_: FilaSentido): void {
     this.guardarEnStorage();
-    // ===== Sección: Desactiva masivo al marcar/desmarcar filas
     this.desactivarMasivoPorInteraccion();
   }
 
-  // ==========================
-  // Acciones globales
-  // ==========================
-  aplicarConfiguracion(): void {
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Acciones globales
+     ─────────────────────────────────────────────────────────────────────────── */
+  async aplicarConfiguracion(): Promise<void> {
     if (this.filas.some(f => !f.sentido)) {
       this.showAlertaSinSeleccion = true;
       return;
     }
     this.showAlertaSinSeleccion = false;
-
     this.guardarEnStorage();
+
+    const idEstrategia = this.leerIdEstrategia();
+    const divisasPaso2 = this.leerDivisasPaso2();
+
+    if (idEstrategia && divisasPaso2.length) {
+      const req = this.armarPayloadPatch(idEstrategia, divisasPaso2);
+      if (req.divisas.length) {
+        this.enviando = true;
+        try {
+          await this.api.patchSentidoOperacion(req).toPromise();
+          this.mostrarOkPequenio();
+        } catch (e) {
+          console.error('Error al actualizar sentido de operación', e);
+          this.enviando = false;
+          return;
+        }
+        this.enviando = false;
+      }
+    }
 
     if (this.isEditSession) {
       try {
@@ -225,8 +310,6 @@ export class SentidoOperacionComponent implements OnInit {
     }
 
     this.avanzarStep.emit();
-
-    /* ===== Fallback global para avanzar (como en Step 2) ===== */
     try {
       window.dispatchEvent(new CustomEvent('wizard:next-step', { detail: { from: 'step3-sentido-operacion' } }));
     } catch {}
@@ -243,13 +326,12 @@ export class SentidoOperacionComponent implements OnInit {
     this.guardarEnStorage();
   }
 
-  // ==========================
-  // Modal masivo
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Modal masivo
+     ─────────────────────────────────────────────────────────────────────────── */
   abrirModalMasivo(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (input.checked) {
-      // ===== Sección: Al abrir, marcar filas como seleccionadas (como Step 2)
       this.filas = this.filas.map(f => ({ ...f, _selected: true }));
       this.masivo.activo = true;
       this.modalSentido = '' as Sentido;
@@ -264,7 +346,6 @@ export class SentidoOperacionComponent implements OnInit {
 
   cerrarModalMasivo(aceptado: boolean): void {
     this.mostrarModalMasivo = false;
-    // ===== Sección: Mantener masivo activo si se aceptó; desactivarlo si se canceló
     this.masivo.activo = !!aceptado;
     this.filas = this.filas.map(f => ({ ...f, _selected: false }));
     this.guardarEnStorage();
@@ -279,7 +360,6 @@ export class SentidoOperacionComponent implements OnInit {
     const huboAntes = this.huboCambios();
 
     this.filas = this.filas.map(f => ({ ...f, sentido: valor, _selected: false, _open: false }));
-    // ===== Sección: Mantener estado masivo activo y guardar el valor aplicado
     this.masivo.activo = true;
     this.masivo.valor = valor;
     this.showAlertaSinSeleccion = false;
@@ -293,9 +373,9 @@ export class SentidoOperacionComponent implements OnInit {
     }
   }
 
-  // ==========================
-  // Storage
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Storage
+     ─────────────────────────────────────────────────────────────────────────── */
   private cargarDesdeStorage(): void {
     const pares = this.leerParesSeleccionados();
 
@@ -380,9 +460,9 @@ export class SentidoOperacionComponent implements OnInit {
     this.guardarEnStorage();
   }
 
-  // ==========================
-  // Utilidades
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Utilidades de lectura
+     ─────────────────────────────────────────────────────────────────────────── */
   private leerParesSeleccionados(): ParDivisaStored[] {
     const raw = localStorage.getItem(PARES_KEY);
     if (!raw) return [];
@@ -393,6 +473,24 @@ export class SentidoOperacionComponent implements OnInit {
     } catch { return []; }
   }
 
+  private leerIdEstrategia(): number | null {
+    const raw = localStorage.getItem(K_ID_ESTRATEGIA);
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  private leerDivisasPaso2(): DivisaPaso2[] {
+    const raw = localStorage.getItem(K_STEP2_IDS);
+    if (!raw) return [];
+    try {
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr.filter(x => Number.isFinite(x?.idDivisaEstrategia)) : [];
+    } catch { return []; }
+  }
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Utilidades de mapeo
+     ─────────────────────────────────────────────────────────────────────────── */
   private keyFor(p: ParDivisaStored): string {
     const base = (p.base || '').toUpperCase().trim();
     const cot  = (p.cotiza || '').toUpperCase().trim();
@@ -409,17 +507,70 @@ export class SentidoOperacionComponent implements OnInit {
     return '—';
   }
 
-  // ==========================
-  // Modal OK
-  // ==========================
+  private uiASentidoBack(v: Sentido): SentidoOperacion {
+    switch (v) {
+      case 'compra': return 'COMPRA';
+      case 'venta':  return 'VENTA';
+      default:       return 'COMPRA_VENTA';
+    }
+  }
+
+  private backASentidoUi(codigo: SentidoOperacion): Sentido {
+    switch (codigo) {
+      case 'COMPRA':        return 'compra';
+      case 'VENTA':         return 'venta';
+      case 'COMPRA_VENTA':  return 'ambos';
+      default:              return '';
+    }
+  }
+
+  private normalizarClave(clave: string): string {
+    return String(clave || '').toUpperCase().replace(/\//g, '-').trim();
+  }
+
+  private armarPayloadPatch(idEstrategia: number, divisasPaso2: DivisaPaso2[]): ListadoSentidoOperacionDivisaRequest {
+    const mapaIdPorClave = new Map<string, number>();
+    for (const d of divisasPaso2) {
+      const k = this.normalizarClave(d.claveParDivisa);
+      mapaIdPorClave.set(k, d.idDivisaEstrategia);
+    }
+
+    const items = this.filas
+      .map(f => {
+        const clave = this.normalizarClave(f.parKey);
+        const idDivisa = f.parId ?? mapaIdPorClave.get(clave) ?? null;
+        const sentido = f.sentido ? this.uiASentidoBack(f.sentido) : null;
+        if (idDivisa == null || sentido == null) return null;
+        return { idDivisaEstrategia: idDivisa, sentidoOperacion: sentido };
+      })
+      .filter(Boolean) as ListadoSentidoOperacionDivisaRequest['divisas'];
+
+    return { idEstrategia, divisas: items };
+  }
+
+  private normalizarSegunCatalogo(): void {
+    // Si el back limita opciones, cualquier valor fuera del catálogo se limpia.
+    if (!this.catalogoMapUi || !this.catalogoMapUi.size) return;
+    this.filas = this.filas.map(f => {
+      if (!f.sentido || this.catalogoMapUi.has(f.sentido)) return f;
+      return { ...f, sentido: '' as Sentido };
+    });
+    this.guardarEnStorage();
+  }
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Modal OK
+     ─────────────────────────────────────────────────────────────────────────── */
   private mostrarOkPequenio(): void { this.mostrarModalOk = true; }
   cerrarModalOk(): void { this.mostrarModalOk = false; }
 
-  // ==========================
-  // Regla: desactivar masivo por interacción
-  // ==========================
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Reglas de interfaz
+     ─────────────────────────────────────────────────────────────────────────── */
   private desactivarMasivoPorInteraccion(): void { this.masivo.activo = false; }
 }
 
-export { SentidoOperacionComponent as Step3SentidoOperaciON } from './step3-sentido-operacion';
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Exportación alias (para rutas/consumo)
+   ───────────────────────────────────────────────────────────────────────────── */
 export { SentidoOperacionComponent as Step3SentidoOperacion };

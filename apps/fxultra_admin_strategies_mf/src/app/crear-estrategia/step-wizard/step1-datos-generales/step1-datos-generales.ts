@@ -3,8 +3,7 @@
 import { Component, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { ActivatedRoute, Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 
 import { EstrategiasApiService } from '../../../core/api/estrategias-api.service';
 import {
@@ -74,9 +73,6 @@ export class Step1DatosGenerales implements OnInit {
   @Output() avanzarStep = new EventEmitter<void>();
 
   constructor(
-    private http: HttpClient,
-    private router: Router,
-    private route: ActivatedRoute,
     private estrategiasApi: EstrategiasApiService
   ) {}
 
@@ -299,7 +295,7 @@ export class Step1DatosGenerales implements OnInit {
     if (codigoDetectado) this.productoAsociado = codigoDetectado;
 
     this.errorMsg = '';
-    this.errorNombreExiste = false;
+       this.errorNombreExiste = false;
     this.errorProductoAsociado = false;
     this.errorNombreVacio = false;
     this.errorDescripcionVacia = false;

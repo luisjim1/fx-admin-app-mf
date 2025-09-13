@@ -1,11 +1,16 @@
-<!-- fecha-liquidacion.component.html — COMPLETO (jump libre + modal OK al editar, versión pequeña) -->
+<!-- apps/fxultra_admin_strategies_mf/src/app/crear-estrategia/step-wizard/step4-fecha-liquidacion/step4-fecha-liquidacion.html -->
+
+<!-- ─────────────────────────────────────────────────────────────────────────────
+     Sección: Contenedor y título
+     ───────────────────────────────────────────────────────────────────────────── -->
 <div class="fecha-liquidacion-container">
-  <!-- ===== Sección: Título ===== -->
   <div class="titulo">
     Selecciona por moneda previamente seleccionada la fecha de liquidación para las operaciones
   </div>
 
-  <!-- ===== Sección: Selección masiva ===== -->
+  <!-- ─────────────────────────────────────────────────────────────────────────────
+       Sección: Selección masiva
+       ───────────────────────────────────────────────────────────────────────────── -->
   <label class="check-todos">
     <input
       type="checkbox"
@@ -19,7 +24,9 @@
     </span>
   </label>
 
-  <!-- ===== Sección: Tabla ===== -->
+  <!-- ─────────────────────────────────────────────────────────────────────────────
+       Sección: Tabla
+       ───────────────────────────────────────────────────────────────────────────── -->
   <div class="tabla-wrapper">
     <table class="tabla-fecha" role="table">
       <colgroup>
@@ -55,32 +62,35 @@
           <td>
             <div class="fecha-box" [class.error]="showAlertaSinSeleccion && row.seleccion.length === 0">
               <div class="select-sim" [class.open]="row._open">
-                <button type="button" class="select-btn" (click)="toggleMenu(row)">
+                <button
+                  type="button"
+                  class="select-btn"
+                  (click)="$event.stopPropagation(); toggleMenu(row)">
                   <span class="select-label">{{ resumenSeleccion(row) || 'Selecciona' }}</span>
                   <span class="caret"></span>
                 </button>
 
-                <div class="menu" *ngIf="row._open">
+                <div class="menu" *ngIf="row._open" (click)="$event.stopPropagation()">
                   <button
                     type="button"
                     class="menu-item"
-                    [class.active]="isSeleccionado(row,'all')"
-                    (click)="toggleOpcion(row,'all')">
+                    [class.active]="tieneTodas(row)"
+                    (click)="$event.stopPropagation(); toggleOpcion(row,'all')">
                     <span class="mini-checkbox" aria-hidden="true"></span>
                     <span>Todas las fechas</span>
                   </button>
 
                   <ng-container *ngIf="!row.esJPY; else opcionesJPY">
-                    <button type="button" class="menu-item" [class.active]="isSeleccionado(row,'today')" (click)="toggleOpcion(row,'today')">
+                    <button type="button" class="menu-item" [class.active]="isSeleccionado(row,'today')" (click)="$event.stopPropagation(); toggleOpcion(row,'today')">
                       <span class="mini-checkbox" aria-hidden="true"></span><span>Today</span>
                     </button>
-                    <button type="button" class="menu-item" [class.active]="isSeleccionado(row,'tom')" (click)="toggleOpcion(row,'tom')">
+                    <button type="button" class="menu-item" [class.active]="isSeleccionado(row,'tom')" (click)="$event.stopPropagation(); toggleOpcion(row,'tom')">
                       <span class="mini-checkbox" aria-hidden="true"></span><span>TOM</span>
                     </button>
-                    <button type="button" class="menu-item" [class.active]="isSeleccionado(row,'spot48')" (click)="toggleOpcion(row,'spot48')">
+                    <button type="button" class="menu-item" [class.active]="isSeleccionado(row,'spot48')" (click)="$event.stopPropagation(); toggleOpcion(row,'spot48')">
                       <span class="mini-checkbox" aria-hidden="true"></span><span>SPOT (48h)</span>
                     </button>
-                    <button type="button" class="menu-item" [class.active]="isSeleccionado(row,'1d72')" (click)="toggleOpcion(row,'1d72')">
+                    <button type="button" class="menu-item" [class.active]="isSeleccionado(row,'1d72')" (click)="$event.stopPropagation(); toggleOpcion(row,'1d72')">
                       <span class="mini-checkbox" aria-hidden="true"></span><span>1D (72h)</span>
                     </button>
                     <button type="button" class="menu-item disabled">
@@ -89,10 +99,10 @@
                   </ng-container>
 
                   <ng-template #opcionesJPY>
-                    <button type="button" class="menu-item" [class.active]="isSeleccionado(row,'spot48') || isSeleccionado(row,'all')" (click)="toggleOpcion(row,'spot48')">
+                    <button type="button" class="menu-item" [class.active]="isSeleccionado(row,'spot48')" (click)="$event.stopPropagation(); toggleOpcion(row,'spot48')">
                       <span class="mini-checkbox" aria-hidden="true"></span><span>SPOT (48h)</span>
                     </button>
-                    <button type="button" class="menu-item" [class.active]="isSeleccionado(row,'1d72') || isSeleccionado(row,'all')" (click)="toggleOpcion(row,'1d72')">
+                    <button type="button" class="menu-item" [class.active]="isSeleccionado(row,'1d72')" (click)="$event.stopPropagation(); toggleOpcion(row,'1d72')">
                       <span class="mini-checkbox" aria-hidden="true"></span><span>1D (72h)</span>
                     </button>
                   </ng-template>
@@ -105,7 +115,9 @@
     </table>
   </div>
 
-  <!-- ===== Sección: Mensajes ===== -->
+  <!-- ─────────────────────────────────────────────────────────────────────────────
+       Sección: Mensajes
+       ───────────────────────────────────────────────────────────────────────────── -->
   <div class="alerta-wrapper">
     <div *ngIf="showAlertaSinSeleccion" class="mensaje-error">
       <i class="fas fa-exclamation-circle"></i>
@@ -113,17 +125,20 @@
     </div>
   </div>
 
-  <!-- ===== Sección: Acciones ===== -->
+  <!-- ─────────────────────────────────────────────────────────────────────────────
+       Sección: Acciones
+       ───────────────────────────────────────────────────────────────────────────── -->
   <div class="acciones">
     <button class="btn-principal" (click)="aplicarConfiguracion()">Aplicar configuración</button>
     <span class="restablecer" (click)="restablecer()">Reestablecer</span>
   </div>
 
-  <!-- ===== Sección: Progreso ===== -->
   <div class="progreso">Paso 4 de 7</div>
 </div>
 
-<!-- ===== Modal MASIVO ===== -->
+<!-- ─────────────────────────────────────────────────────────────────────────────
+     Sección: Modal masivo
+     ───────────────────────────────────────────────────────────────────────────── -->
 <div class="modal-backdrop" *ngIf="mostrarModalMasivo" (click)="cerrarModalMasivo(false)"></div>
 <div
   class="modal-contenedor"
@@ -151,20 +166,20 @@
     <div class="modal-titulo">Fechas de liquidación</div>
 
     <p class="modal-desc">Aplicar a todas las monedas (excepto JPY)</p>
-    <div class="modal-list">
-      <button type="button" class="item" [class.active]="isGenSel('all')" (click)="toggleGen('all')">
+    <div class="modal-list" (click)="$event.stopPropagation()">
+      <button type="button" class="item" [class.active]="isGenAll()" (click)="$event.stopPropagation(); toggleGen('all')">
         <span class="mini-checkbox"></span><span>Todas las fechas</span>
       </button>
-      <button type="button" class="item" [class.active]="isGenSel('today')" (click)="toggleGen('today')">
+      <button type="button" class="item" [class.active]="isGenSel('today')" (click)="$event.stopPropagation(); toggleGen('today')">
         <span class="mini-checkbox"></span><span>Today</span>
       </button>
-      <button type="button" class="item" [class.active]="isGenSel('tom')" (click)="toggleGen('tom')">
+      <button type="button" class="item" [class.active]="isGenSel('tom')" (click)="$event.stopPropagation(); toggleGen('tom')">
         <span class="mini-checkbox"></span><span>TOM</span>
       </button>
-      <button type="button" class="item" [class.active]="isGenSel('spot48')" (click)="toggleGen('spot48')">
+      <button type="button" class="item" [class.active]="isGenSel('spot48')" (click)="$event.stopPropagation(); toggleGen('spot48')">
         <span class="mini-checkbox"></span><span>SPOT (48h)</span>
       </button>
-      <button type="button" class="item" [class.active]="isGenSel('1d72')" (click)="toggleGen('1d72')">
+      <button type="button" class="item" [class.active]="isGenSel('1d72')" (click)="$event.stopPropagation(); toggleGen('1d72')">
         <span class="mini-checkbox"></span><span>1D (72h)</span>
       </button>
       <button type="button" class="item disabled">
@@ -180,14 +195,14 @@
       </label>
     </div>
 
-    <div class="modal-list" *ngIf="tieneJPY && modalJPYEnabled">
-      <button type="button" class="item" [class.active]="isJpySel('all')" (click)="toggleJpy('all')">
+    <div class="modal-list" *ngIf="tieneJPY && modalJPYEnabled" (click)="$event.stopPropagation()">
+      <button type="button" class="item" [class.active]="isJpyAll()" (click)="$event.stopPropagation(); toggleJpy('all')">
         <span class="mini-checkbox"></span><span>Todas las fechas</span>
       </button>
-      <button type="button" class="item" [class.active]="isJpySel('spot48') || isJpySel('all')" (click)="toggleJpy('spot48')">
+      <button type="button" class="item" [class.active]="isJpySel('spot48')" (click)="$event.stopPropagation(); toggleJpy('spot48')">
         <span class="mini-checkbox"></span><span>SPOT (48h)</span>
       </button>
-      <button type="button" class="item" [class.active]="isJpySel('1d72') || isJpySel('all')" (click)="toggleJpy('1d72')">
+      <button type="button" class="item" [class.active]="isJpySel('1d72')" (click)="$event.stopPropagation(); toggleJpy('1d72')">
         <span class="mini-checkbox"></span><span>1D (72h)</span>
       </button>
     </div>
@@ -198,8 +213,10 @@
   </div>
 </div>
 
-<!-- ===== Modal OK pequeño ===== -->
-<div class="modal-backdrop" *ngIf="mostrarModalOk" (click)="cerrarModalOk()"></div>
+<!-- ─────────────────────────────────────────────────────────────────────────────
+     Sección: Modal OK
+     ───────────────────────────────────────────────────────────────────────────── -->
+<div class="modal-backdrop" *ngIf="mostrarModalOk" (click)="$event.stopPropagation(); cerrarModalOk()"></div>
 <div
   class="modal-contenedor modal-ok-peq"
   *ngIf="mostrarModalOk"

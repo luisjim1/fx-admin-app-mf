@@ -1,16 +1,32 @@
-import { Component, Output, EventEmitter, OnInit } from '@angular/core';
+// apps/fxultra_admin_strategies_mf/src/app/crear-estrategia/step-wizard/step5-horarios/step5-horarios.ts
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Imports
+   ───────────────────────────────────────────────────────────────────────────── */
+import { Component, Output, EventEmitter, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
+import { EstrategiasApiService } from '../../../core/api/estrategias-api.service';
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Tipos locales
+   ───────────────────────────────────────────────────────────────────────────── */
 interface Horario { inicio: string; fin: string; editando: boolean; }
+type HorarioResp = { idHorarioEstrategia: number; horaInicio: string; horaFin: string };
 
-const STORAGE_KEY = 'wizard_horarios';
-const MAX_AGE_MS = 24 * 60 * 60 * 1000;
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Constantes y navegación
+   ───────────────────────────────────────────────────────────────────────────── */
+const STORAGE_KEY         = 'wizard_horarios';
+const MAX_AGE_MS          = 24 * 60 * 60 * 1000;
 
-// tokens de navegación globales (se usan según tu lógica existente)
 const K_RETURN_AFTER_EDIT = 'wizard_return_after_edit';
 const K_JUMP_TO_STEP      = 'wizard_jump_to_step';
 const K_PROGRESS          = 'wizard_progress';
+const K_ID_ESTRATEGIA     = 'wizard_idEstrategia';
+const K_STEP2_IDS         = 'wizard_step2_divisas_ids'; // <- NUEVO: lista de { claveParDivisa, idDivisaEstrategia }
+
 const STEP_HORARIOS_INDEX = 4;
 
 const DEFAULT_HORARIOS: Horario[] = [
@@ -18,6 +34,9 @@ const DEFAULT_HORARIOS: Horario[] = [
   { inicio: '16:00', fin: '24:00', editando: false }
 ];
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Componente
+   ───────────────────────────────────────────────────────────────────────────── */
 @Component({
   selector: 'app-horarios',
   standalone: true,
@@ -28,6 +47,7 @@ const DEFAULT_HORARIOS: Horario[] = [
 export class HorariosComponent implements OnInit {
   @Output() avanzarStep = new EventEmitter<void>();
 
+  /* ── Estado de pantalla ──────────────────────────────────────────────────── */
   horarios: Horario[] = cloneDefault();
   errorMsg = '';
 
@@ -35,15 +55,57 @@ export class HorariosComponent implements OnInit {
   accionPendiente: 'individual' | 'todos' | null = null;
   indiceAEliminar: number | null = null;
 
-  // OK pequeño
+  /* ── Modal OK ────────────────────────────────────────────────────────────── */
   mostrarModalOk = false;
 
-  // detección de edición (para decidir cuándo mostrar el OK)
+  /* ── Contexto de edición ─────────────────────────────────────────────────── */
   private isEditSession = false;
   private prevSnapshot = '';
 
+  /* ── Backend ─────────────────────────────────────────────────────────────── */
+  private api = inject(EstrategiasApiService);
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Ciclo de vida
+     ─────────────────────────────────────────────────────────────────────────── */
   ngOnInit(): void {
-    // detectar si venimos editando un paso posterior
+    this.detectarEdicionDesdeStorage();
+    this.cargarDesdeStorage();
+    this.guardarEnLocalStorage();
+    this.capturarSnapshot();
+  }
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Persistencia local
+     ─────────────────────────────────────────────────────────────────────────── */
+  private guardarEnLocalStorage(): void {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      horarios: this.horarios,
+      timestamp: Date.now()
+    }));
+  }
+
+  private cargarDesdeStorage(): void {
+    const guardado = localStorage.getItem(STORAGE_KEY);
+    if (guardado) {
+      try {
+        const parsed = JSON.parse(guardado);
+        const age = Date.now() - (parsed.timestamp ?? 0);
+        if (age < MAX_AGE_MS && Array.isArray(parsed.horarios) && parsed.horarios.length) {
+          this.horarios = parsed.horarios;
+          return;
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      } catch {}
+    }
+    this.horarios = cloneDefault();
+  }
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Edición
+     ─────────────────────────────────────────────────────────────────────────── */
+  private detectarEdicionDesdeStorage(): void {
     try {
       const raw = localStorage.getItem(K_RETURN_AFTER_EDIT) || localStorage.getItem(K_PROGRESS);
       if (raw) {
@@ -54,35 +116,11 @@ export class HorariosComponent implements OnInit {
         this.isEditSession = idx != null && idx > STEP_HORARIOS_INDEX;
       }
     } catch {}
-
-    const guardado = localStorage.getItem(STORAGE_KEY);
-    if (guardado) {
-      try {
-        const parsed = JSON.parse(guardado);
-        const age = Date.now() - (parsed.timestamp ?? 0);
-        if (age < MAX_AGE_MS && Array.isArray(parsed.horarios) && parsed.horarios.length) {
-          this.horarios = parsed.horarios;
-        } else {
-          localStorage.removeItem(STORAGE_KEY);
-          this.horarios = cloneDefault();
-        }
-      } catch {
-        this.horarios = cloneDefault();
-      }
-    } else {
-      this.horarios = cloneDefault();
-    }
-    this.guardarEnLocalStorage();
-    this.capturarSnapshot();
   }
 
-  private guardarEnLocalStorage(): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      horarios: this.horarios,
-      timestamp: Date.now()
-    }));
-  }
-
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Acciones de tabla
+     ─────────────────────────────────────────────────────────────────────────── */
   insertarHorario(): void {
     this.desactivarTodasLasEdiciones();
     const totalMin = this.totalMinutosActuales();
@@ -111,6 +149,7 @@ export class HorariosComponent implements OnInit {
     if (this.accionPendiente === 'individual' && this.indiceAEliminar !== null) {
       const deletedIndex = this.indiceAEliminar;
       this.horarios.splice(deletedIndex, 1);
+
       if (this.horarios.length === 1) {
         this.horarios[0].fin = this.horarios[0].inicio;
       } else if (this.horarios.length >= 2) {
@@ -142,8 +181,12 @@ export class HorariosComponent implements OnInit {
     if (this.isEditSession) this.mostrarOkPequenio();
   }
 
-  aplicarConfiguracion(): void {
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Envío (POST) y navegación
+     ─────────────────────────────────────────────────────────────────────────── */
+  async aplicarConfiguracion(): Promise<void> {
     this.errorMsg = '';
+
     const validacion = this.validarHorarios24h();
     if (!validacion.ok) {
       this.errorMsg = validacion.mensaje;
@@ -152,19 +195,57 @@ export class HorariosComponent implements OnInit {
 
     this.guardarEnLocalStorage();
 
-    // Mostrar OK si hubo cambios respecto del snapshot
+    const idEstrategia = this.leerIdEstrategia();
+    if (!idEstrategia) {
+      this.errorMsg = 'No se encontró el contexto de la estrategia.';
+      return;
+    }
+
+    // Normalización para el backend: 24:00 → 00:00
+    const payload = {
+      idEstrategia,
+      horarios: this.horarios.map(h => ({
+        horaInicio: this.normalizarHoraParaBack(h.inicio),
+        horaFin:    this.normalizarHoraParaBack(h.fin)
+      }))
+    };
+
+    let resp: any;
+    try {
+      resp = await this.api.postHorariosEstrategia(payload as any).toPromise();
+    } catch (err: any) {
+      this.errorMsg = String(err?.message || err || 'Error al registrar horarios de estrategia');
+      return;
+    }
+
+    // ⬇️ NUEVO: Persistimos en localStorage los IDs por cada idDivisaEstrategia (Step 2)
+    try {
+      const horariosResp: HorarioResp[] = Array.isArray(resp?.horariosEstrategia)
+        ? (resp.horariosEstrategia as any[]).map(x => ({
+            idHorarioEstrategia: Number(x?.idHorarioEstrategia),
+            horaInicio: normHora(String(x?.horaInicio || '')),
+            horaFin:    normHora(String(x?.horaFin    || '')),
+          })).filter(x => Number.isFinite(x.idHorarioEstrategia))
+        : [];
+
+      if (horariosResp.length) {
+        this.persistirHorariosParaTodasLasDivisas(horariosResp);
+      } else {
+        console.warn('[Paso 5] El POST no devolvió horariosEstrategia con IDs; no se pudo persistir wizard_horarios.');
+      }
+    } catch (e) {
+      console.error('[Paso 5] Error al persistir wizard_horarios:', e);
+    }
+
     const cambios = this.huboCambios();
     if (this.isEditSession && cambios) this.mostrarOkPequenio();
 
-    // === Navegación controlada según cambios y sesión de edición ===
     try {
       if (this.isEditSession) {
         if (cambios) {
-          // Si SÍ hubo cambios → ir a Spreads (5) y limpiar el "regresar a donde venía"
           localStorage.setItem(K_JUMP_TO_STEP, JSON.stringify({ stepIndex: 5, ts: Date.now() }));
           localStorage.removeItem(K_RETURN_AFTER_EDIT);
         } else {
-          // Si NO hubo cambios → NO seteamos JUMP y dejamos RETURN_AFTER_EDIT
           localStorage.removeItem(K_JUMP_TO_STEP);
           const raw = localStorage.getItem(K_RETURN_AFTER_EDIT);
           if (raw) {
@@ -176,15 +257,12 @@ export class HorariosComponent implements OnInit {
           }
         }
       } else {
-        // Flujo normal (no edición)
         localStorage.removeItem(K_JUMP_TO_STEP);
         localStorage.removeItem(K_RETURN_AFTER_EDIT);
       }
     } catch {}
 
     this.avanzarStep.emit();
-
-    /* ===== Fallback global para avanzar (igual que Step 3/4) ===== */
     try {
       window.dispatchEvent(new CustomEvent('wizard:next-step', { detail: { from: 'step5-horarios' } }));
     } catch {}
@@ -199,6 +277,9 @@ export class HorariosComponent implements OnInit {
     if (this.isEditSession) this.mostrarOkPequenio();
   }
 
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Formato de entradas
+     ─────────────────────────────────────────────────────────────────────────── */
   private desactivarTodasLasEdiciones(): void {
     this.horarios.forEach(h => h.editando = false);
   }
@@ -222,15 +303,19 @@ export class HorariosComponent implements OnInit {
     setTimeout(() => { input.selectionStart = input.selectionEnd = cursorPos; });
   }
 
-  // ---- utilidades de tiempo / validación (tuyas intactas) ----
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Validación 24h y snapshot
+     ─────────────────────────────────────────────────────────────────────────── */
   private toMinutes(hora: string): number {
     if (hora === '24:00') return 1440;
     const [hh, mm] = hora.split(':').map(Number);
     return hh * 60 + mm;
   }
+
   private esHoraValida(hora: string): boolean {
     return /^([01]\d|2[0-3]|24):([0-5]\d)$/.test(hora);
   }
+
   private totalMinutosActuales(): number {
     return this.horarios.reduce((total, h) => {
       const inicioMin = this.toMinutes(h.inicio);
@@ -239,13 +324,16 @@ export class HorariosComponent implements OnInit {
       return total + dur;
     }, 0);
   }
+
   private validarHorarios24h(): { ok: boolean; mensaje: string } {
     if (!this.horarios.length) return { ok: false, mensaje: 'No se permite el registro menor a 24h' };
+
     for (const h of this.horarios) {
       if (!this.esHoraValida(h.inicio) || !this.esHoraValida(h.fin)) {
         return { ok: false, mensaje: 'No se permite el registro menor a 24h' };
       }
     }
+
     if (this.horarios.length === 1) {
       const h = this.horarios[0];
       const ini = this.toMinutes(h.inicio);
@@ -254,6 +342,7 @@ export class HorariosComponent implements OnInit {
       return dur === 1440 ? { ok: true, mensaje: '' }
                           : { ok: false, mensaje: dur < 1440 ? 'No se permite el registro menor a 24h' : 'No se permite el registro mayor a 24h' };
     }
+
     let segs = this.horarios.map(h => {
       const s = this.toMinutes(h.inicio);
       let e = this.toMinutes(h.fin);
@@ -261,10 +350,12 @@ export class HorariosComponent implements OnInit {
       return { s, e };
     });
     segs.sort((a, b) => a.s - b.s);
+
     for (let i = 1; i < segs.length; i++) {
       if (segs[i].s < segs[i - 1].e) return { ok: false, mensaje: 'No se permite el registro mayor a 24h' };
       if (segs[i].s > segs[i - 1].e) return { ok: false, mensaje: 'No se permite el registro menor a 24h' };
     }
+
     const cobertura = (segs[segs.length - 1].e - segs[0].s);
     if (cobertura !== 1440) {
       return { ok: false, mensaje: cobertura < 1440 ? 'No se permite el registro menor a 24h' : 'No se permite el registro mayor a 24h' };
@@ -272,18 +363,83 @@ export class HorariosComponent implements OnInit {
     return { ok: true, mensaje: '' };
   }
 
-  // ---- snapshot para detectar cambios y mostrar OK ----
   private capturarSnapshot(): void { this.prevSnapshot = JSON.stringify(this.horarios); }
   private huboCambios(): boolean { return JSON.stringify(this.horarios) !== this.prevSnapshot; }
 
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Normalización para backend
+     ─────────────────────────────────────────────────────────────────────────── */
+  private normalizarHoraParaBack(hora: string): string {
+    const v = (hora || '').trim();
+    // El backend no acepta 24:00 (LocalTime), y además exige que el último rango termine en 00:00.
+    return v === '24:00' ? '00:00' : v;
+  }
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Lectura de contexto
+     ─────────────────────────────────────────────────────────────────────────── */
+  private leerIdEstrategia(): number | null {
+    const raw = localStorage.getItem(K_ID_ESTRATEGIA);
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     NUEVO: Persistencia de IDs por divisa para Step 6
+     ─────────────────────────────────────────────────────────────────────────── */
+  private leerStep2DivisasIds(): number[] {
+    try {
+      const raw = localStorage.getItem(K_STEP2_IDS);
+      const arr = raw ? JSON.parse(raw) : null;
+      if (!Array.isArray(arr)) return [];
+      // Puede venir [{claveParDivisa, idDivisaEstrategia}, ...]
+      return arr
+        .map((x: any) => Number(x?.idDivisaEstrategia))
+        .filter((n: any) => Number.isFinite(n));
+    } catch {
+      return [];
+    }
+  }
+
+  private persistirHorariosParaTodasLasDivisas(horarios: HorarioResp[]): void {
+    // Normalizamos horas para hacer match exacto con Step 6
+    const normalizados = horarios.map(h => ({
+      idHorarioEstrategia: Number(h.idHorarioEstrategia),
+      horaInicio: normHora(h.horaInicio),
+      horaFin:    normHora(h.horaFin),
+    }));
+
+    // Construimos byDivisa con el mismo arreglo para cada idDivisaEstrategia
+    const idsDivisa = this.leerStep2DivisasIds();
+    const byDivisa: Record<number, HorarioResp[]> = {};
+    for (const id of idsDivisa) {
+      byDivisa[id] = normalizados;
+    }
+
+    const payloadLS = { byDivisa, timestamp: Date.now() };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payloadLS));
+  }
+
+  /* ───────────────────────────────────────────────────────────────────────────
+     Sección: Modal OK
+     ─────────────────────────────────────────────────────────────────────────── */
   private mostrarOkPequenio(): void { this.mostrarModalOk = true; }
   cerrarModalOk(): void { this.mostrarModalOk = false; }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Utilidades
+   ───────────────────────────────────────────────────────────────────────────── */
 function cloneDefault(): Horario[] {
   return DEFAULT_HORARIOS.map(h => ({ ...h }));
 }
 
-/* Re-exports alineados a los steps previos */
+function normHora(h: string): string {
+  return (h || '').trim() === '24:00' ? '00:00' : (h || '').trim();
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sección: Re-exports nominales
+   ───────────────────────────────────────────────────────────────────────────── */
 export { HorariosComponent as Step5HorariOS } from './step5-horarios';
 export { HorariosComponent as Step5Horarios };

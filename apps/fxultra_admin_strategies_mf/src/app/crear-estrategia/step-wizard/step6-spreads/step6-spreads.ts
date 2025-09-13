@@ -1,26 +1,27 @@
-// spreads.component.ts
-import { Component, EventEmitter, OnInit, OnDestroy, Output } from '@angular/core';
+import { Component, EventEmitter, OnDestroy, OnInit, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { EstrategiasApiService } from '../../../core/api/estrategias-api.service';
 
 interface Horario { inicio: string; fin: string; }
-interface SpreadFila { inicio: string; fin: string; vende: string; compra: string; edit: boolean; }
+interface SpreadFila { inicio: string; fin: string; vende: string; compra: string; edit: boolean; idHorarioEstrategia?: number; idSpreadHorario?: number; }
 interface ParGrupo { nombre: string; seleccionado: boolean; filas: SpreadFila[]; }
 
 type Sentido = 'ambos' | 'compra' | 'venta';
 type TipoAlerta = 'none' | 'decimales' | 'decimales_min' | 'caracteres' | 'entero';
 
-const K_PARES = 'wizard_pares_divisas';
-const K_HORARIOS = 'wizard_horarios';
-const K_SPREADS = 'wizard_spreads';
-const K_PROGRESS = 'wizard_progress';
-const K_SENTIDO = 'wizard_sentido_operacion';
+const K_PARES     = 'wizard_pares_divisas';
+const K_HORARIOS  = 'wizard_horarios'; // { byDivisa: { [idDivisaEstrategia]: [{idHorarioEstrategia,horaInicio,horaFin}] }, timestamp }
+const K_SPREADS   = 'wizard_spreads';
+const K_PROGRESS  = 'wizard_progress';
+const K_SENTIDO   = 'wizard_sentido_operacion';
+const K_STEP2_IDS = 'wizard_step2_divisas_ids';
+const K_ID_ESTRAT = 'wizard_idEstrategia';
 
-// para detectar edición y decidir si mostrar OK
 const K_RETURN_AFTER_EDIT = 'wizard_return_after_edit';
-const STEP_SPREADS_INDEX = 5;
-const EXCLUIDO_POR_REGLA = 'JPY/MXN';
-const MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const STEP_SPREADS_INDEX  = 5;
+const EXCLUIDO_POR_REGLA  = 'JPY/MXN';
+const MAX_AGE_MS          = 24 * 60 * 60 * 1000;
 
 @Component({
   selector: 'app-spreads',
@@ -30,10 +31,8 @@ const MAX_AGE_MS = 24 * 60 * 60 * 1000;
   styleUrls: ['./step6-spreads.scss']
 })
 export class SpreadsComponent implements OnInit, OnDestroy {
-  /* ===== Eventos ===== */
   @Output() avanzarStep = new EventEmitter<void>();
 
-  /* ===== Estado UI ===== */
   usarPorcentaje = false;
   mismosSpreadsTodos = false;
   grupos: ParGrupo[] = [];
@@ -47,27 +46,28 @@ export class SpreadsComponent implements OnInit, OnDestroy {
 
   mostrarModalReset = false;
 
-  /* ===== OK pequeño / sesión edición ===== */
   mostrarModalOk = false;
   private isEditSession = false;
   private prevSnapshot = '';
 
-  /* ===== Alertas / validaciones ===== */
   alerta: { tipo: TipoAlerta; max: number } = { tipo: 'none', max: 4 };
   showAlertaCeros = false;
   private validarCerosAlAplicar = false;
 
-  /* ===== Internos ===== */
   private fieldErrors: Record<string, boolean> = {};
   private persistTimer: any = null;
   private beforeUnloadHandler = () => { try { this.persistir(); this.markLastStep(true); } catch {} };
   private sentidosPorPar: Record<string, Sentido> = {};
   private activeKey: string | null = null;
 
+  private api = inject(EstrategiasApiService);
+
   /* ===== Helpers ===== */
   private decimalsForPair(pair: string): number { return pair === EXCLUIDO_POR_REGLA ? 6 : 4; }
   private defaultPrec(pair: string): string { return (0).toFixed(this.decimalsForPair(pair)); }
   private isJPY(pair: string): boolean { return (pair || '').toUpperCase() === EXCLUIDO_POR_REGLA; }
+  private normHora(h: string): string { return (h || '').trim() === '24:00' ? '00:00' : (h || '').trim(); }
+  private eqHora(a: string, b: string): boolean { return this.normHora(a) === this.normHora(b); }
 
   private sanitizeSingleDot(val: string): string {
     let v = (val || '').replace(/[^\d.]/g, '');
@@ -95,7 +95,6 @@ export class SpreadsComponent implements OnInit, OnDestroy {
     const dec = decRaw;
     return typeof dec === 'string' ? `${ent}.${dec}`.replace(/\.$/, '.') : ent;
   }
-
   private forceZeroForNonJPY(val: string): string {
     const s = this.sanitizeSingleDot(val);
     if (!s) return s;
@@ -103,7 +102,6 @@ export class SpreadsComponent implements OnInit, OnDestroy {
     const [, dec = ''] = s.split('.');
     return dec.length ? `0.${dec}` : '0.';
   }
-
   private violatesEnteroRule(pair: string, val: string): boolean {
     if (this.isJPY(pair)) return false;
     const s = this.sanitizeSingleDot(val);
@@ -111,7 +109,6 @@ export class SpreadsComponent implements OnInit, OnDestroy {
     const n = Number(s);
     return Number.isFinite(n) && n >= 1;
   }
-
   private isCampoEnabledForSentido(sentido: Sentido, campo: 'vende'|'compra'): boolean {
     if (sentido === 'ambos') return true;
     if (sentido === 'compra') return campo === 'vende';
@@ -151,6 +148,10 @@ export class SpreadsComponent implements OnInit, OnDestroy {
     this.aplicarBloqueoEnValores();
     this.tieneJPY = this.grupos.some(g => g.nombre === EXCLUIDO_POR_REGLA);
     this.cargarSpreadsPrevios();
+
+    // Inyectar IDs de horario desde el Paso 5 (localStorage)
+    this.inyectarIdsHorariosDesdeLS();
+
     this.capturarSnapshot();
     window.addEventListener('beforeunload', this.beforeUnloadHandler);
   }
@@ -193,18 +194,21 @@ export class SpreadsComponent implements OnInit, OnDestroy {
   }
 
   private cargarHorarios(): Horario[] {
+    // Solo tiempos base; los IDs vienen de K_HORARIOS (por divisa) tras Paso 5
     const horariosRaw = localStorage.getItem(K_HORARIOS);
-    let horarios: Horario[] = [];
     if (horariosRaw) {
       try {
         const parsed = JSON.parse(horariosRaw);
-        if (Array.isArray(parsed.horarios) && parsed.horarios.length) {
-          horarios = parsed.horarios.map((h: any) => ({ inicio: h.inicio, fin: h.fin }));
+        const byDivisa = parsed?.byDivisa || null;
+        // toma un arreglo de ejemplo para armar las ventanas (todas las divisas comparten cortes de hora)
+        const anyList = byDivisa ? Object.values(byDivisa)[0] as any[] : null;
+        if (Array.isArray(anyList) && anyList.length) {
+          return anyList.map(h => ({ inicio: h.horaInicio, fin: h.horaFin }));
         }
       } catch {}
     }
-    if (!horarios.length) horarios = [{ inicio: '00:00', fin: '16:30' }, { inicio: '16:30', fin: '24:00' }];
-    return horarios;
+    // fallback por si no hay nada guardado aún
+    return [{ inicio: '00:00', fin: '16:30' }, { inicio: '16:30', fin: '24:00' }];
   }
 
   private cargarSentidos(): Record<string, Sentido> {
@@ -225,6 +229,39 @@ export class SpreadsComponent implements OnInit, OnDestroy {
       }
     } catch {}
     return mapa;
+  }
+
+  /* ===== IDs de horario desde localStorage (por divisa) ===== */
+  private inyectarIdsHorariosDesdeLS() {
+    try {
+      const raw = localStorage.getItem(K_HORARIOS);
+      const step2Raw = localStorage.getItem(K_STEP2_IDS);
+      if (!raw || !step2Raw) return;
+
+      const parsed = JSON.parse(raw);
+      const byDivisa: Record<number, Array<{ idHorarioEstrategia: number; horaInicio: string; horaFin: string }>> = parsed?.byDivisa || {};
+      const pares = JSON.parse(step2Raw) as Array<{ claveParDivisa: string; idDivisaEstrategia: number }>;
+
+      const mapaParAIdDiv = new Map<string, number>();
+      for (const d of pares) {
+        const clave = this.normalizarClave(d?.claveParDivisa || '');
+        if (clave && Number.isFinite(Number(d?.idDivisaEstrategia))) {
+          mapaParAIdDiv.set(clave, Number(d.idDivisaEstrategia));
+        }
+      }
+
+      for (const g of this.grupos) {
+        const idDiv = mapaParAIdDiv.get(this.normalizarClave(g.nombre));
+        if (!idDiv) continue;
+        const lista = byDivisa[idDiv] || [];
+        if (!lista.length) continue;
+
+        for (const fila of g.filas) {
+          const m = lista.find(h => this.eqHora(h.horaInicio, fila.inicio) && this.eqHora(h.horaFin, fila.fin));
+          if (m) fila.idHorarioEstrategia = m.idHorarioEstrategia;
+        }
+      }
+    } catch {}
   }
 
   /* ===== Permisos por sentido ===== */
@@ -269,16 +306,14 @@ export class SpreadsComponent implements OnInit, OnDestroy {
     }
     this.grupos[gIndex].filas[fIndex].edit = true;
 
-    /* ===== Sección: desactivar masivo por interacción individual ===== */
     this.desactivarMasivoPorInteraccion();
-
     this.markLastStep();
   }
 
   startEditing(gi: number, fi: number, campo: 'vende'|'compra') {
     this.activeKey = this.keyFor(gi, fi, campo);
     this.validarCerosAlAplicar = false;
-    this.showAlertaCeros = false;
+       this.showAlertaCeros = false;
     if (this.alerta.tipo === 'decimales_min') this.clearAlerta();
   }
 
@@ -416,7 +451,6 @@ export class SpreadsComponent implements OnInit, OnDestroy {
 
     input.value = val;
 
-    /* ===== Sección: desactivar masivo por interacción individual ===== */
     this.desactivarMasivoPorInteraccion();
 
     if (this.persistTimer) clearTimeout(this.persistTimer);
@@ -460,7 +494,6 @@ export class SpreadsComponent implements OnInit, OnDestroy {
     this.grupos[gIndex].filas[fIndex][campo] = val;
     input.value = val;
 
-    /* ===== Sección: desactivar masivo por interacción individual ===== */
     this.desactivarMasivoPorInteraccion();
 
     this.persistir();
@@ -468,9 +501,8 @@ export class SpreadsComponent implements OnInit, OnDestroy {
     this.activeKey = null;
   }
 
-  /* ===== Modal: mismos spreads ===== */
+  /* ===== Modal y Reset ===== */
   abrirModalMismosSpreads(event: Event) {
-    // ===== Sección: abrir modal marcando todos los pares (selección visual)
     this.grupos = this.grupos.map(g => ({ ...g, seleccionado: true }));
     this.mismosSpreadsTodos = true;
     this.mostrarModalMismosSpreads = true;
@@ -480,7 +512,6 @@ export class SpreadsComponent implements OnInit, OnDestroy {
     (event.target as HTMLInputElement).blur();
   }
   cerrarModal(aplico: boolean) {
-    // ===== Sección: al cerrar, mantener checkbox activo solo si se aplicó; limpiar selección visual
     this.mostrarModalMismosSpreads = false;
     this.mismosSpreadsTodos = !!aplico;
     this.grupos = this.grupos.map(g => ({ ...g, seleccionado: false }));
@@ -575,7 +606,6 @@ export class SpreadsComponent implements OnInit, OnDestroy {
     this.persistir();
     this.markLastStep();
 
-    // ===== Sección: cerrar manteniendo masivo activo y limpiando selección visual
     this.mostrarModalMismosSpreads = false;
     this.mismosSpreadsTodos = true;
     this.grupos = this.grupos.map(g => ({ ...g, seleccionado: false }));
@@ -653,6 +683,7 @@ export class SpreadsComponent implements OnInit, OnDestroy {
     return ok;
   }
 
+  /* ===== Carga/Persistencia local ===== */
   private sanitizeStoredForLoad(pair: string, raw: any): string {
     const prec = this.decimalsForPair(pair);
     let v = (raw ?? '').toString();
@@ -708,6 +739,8 @@ export class SpreadsComponent implements OnInit, OnDestroy {
               g.filas[idx].compra = this.sanitizeStoredForLoad(g.nombre, v);
             }
           }
+
+          if (w?.idSpreadHorario != null) g.filas[idx].idSpreadHorario = Number(w.idSpreadHorario);
         });
       });
     } catch {}
@@ -723,7 +756,14 @@ export class SpreadsComponent implements OnInit, OnDestroy {
         windows: g.filas.map(f => {
           const sell = this.puedeEditar(g.nombre, 'vende')  ? (f.vende ?? '') : null;
           const buy  = this.puedeEditar(g.nombre, 'compra') ? (f.compra ?? '') : null;
-          return { start: f.inicio, end: f.fin, sell, buy };
+          return {
+            start: f.inicio,
+            end: f.fin,
+            sell,
+            buy,
+            idHorarioEstrategia: f.idHorarioEstrategia,
+            idSpreadHorario: f.idSpreadHorario
+          };
         })
       })),
       senseMap,
@@ -740,8 +780,8 @@ export class SpreadsComponent implements OnInit, OnDestroy {
     } catch {}
   }
 
-  /* ===== Aplicar configuración ===== */
-  aplicarConfiguracion() {
+  /* ===== Aplicar configuración (POST) ===== */
+  async aplicarConfiguracion() {
     this.validarCerosAlAplicar = true;
     const okMinimos = this.validarMinimosGlobal();
     this.recomputeZeroAlert();
@@ -753,15 +793,56 @@ export class SpreadsComponent implements OnInit, OnDestroy {
     this.persistir();
     this.markLastStep(true);
 
-    if (this.isEditSession && this.huboCambios()) this.mostrarOkPequenio();
+    const idEstrategia = this.leerIdEstrategia();
+    const mapaIds = this.mapaIdDivisaEstrategia();
+
+    if (!idEstrategia || !mapaIds.size) {
+      this.avanzarStep.emit();
+      try { window.dispatchEvent(new CustomEvent('wizard:next-step', { detail: { from: 'step6-spreads' } })); } catch {}
+      this.capturarSnapshot();
+      return;
+    }
+
+    // Reinyectar por si el usuario regresó del paso 5 recién
+    this.inyectarIdsHorariosDesdeLS();
+
+    // Validar que TODOS los tramos tengan idHorarioEstrategia
+    const faltanIds = this.grupos.some(g => g.filas.some(f => f.idHorarioEstrategia == null));
+    if (faltanIds) {
+      console.error('Faltan idHorarioEstrategia en uno o más tramos; regresa al Paso 5 y guarda de nuevo los horarios para que se persistan los IDs.');
+      return;
+    }
+
+    // Construir payload final según SpreadHorarioRequestDTO
+    const reqBack = {
+      idEstrategia,
+      spreadsDivisa: this.grupos.map(g => {
+        const idDivisaEstrategia = mapaIds.get(this.normalizarClave(g.nombre)) ?? null;
+        if (idDivisaEstrategia == null) return null;
+        return {
+          idDivisaEstrategia,
+          spreadsHorario: g.filas
+            .filter(f => f.idHorarioEstrategia != null)
+            .map(f => ({
+              ...(f.idSpreadHorario != null ? { idSpreadHorario: f.idSpreadHorario } : {}),
+              idHorarioEstrategia: f.idHorarioEstrategia!,
+              spreadCompra: Number(this.sanitizeSingleDot(f.compra || '0')) || 0,
+              spreadVenta:  Number(this.sanitizeSingleDot(f.vende  || '0')) || 0
+            }))
+        };
+      }).filter(Boolean)
+    } as any;
+
+    try {
+      await this.api.postSpreads(reqBack).toPromise();
+      if (this.isEditSession && this.huboCambios()) this.mostrarOkPequenio();
+    } catch (e: any) {
+      console.error('Error al registrar spreads', e);
+      return;
+    }
 
     this.avanzarStep.emit();
-
-    /* ===== Fallback global para avanzar (como en pasos previos) ===== */
-    try {
-      window.dispatchEvent(new CustomEvent('wizard:next-step', { detail: { from: 'step6-spreads' } }));
-    } catch {}
-
+    try { window.dispatchEvent(new CustomEvent('wizard:next-step', { detail: { from: 'step6-spreads' } })); } catch {}
     this.capturarSnapshot();
   }
 
@@ -771,18 +852,40 @@ export class SpreadsComponent implements OnInit, OnDestroy {
   private soloValores() {
     return this.grupos.map(g => ({
       nombre: g.nombre,
-      filas: g.filas.map(f => ({ vende: f.vende, compra: f.compra }))
+      filas: g.filas.map(f => ({
+        vende: f.vende, compra: f.compra,
+        idHorarioEstrategia: f.idHorarioEstrategia,
+        idSpreadHorario: f.idSpreadHorario
+      }))
     }));
   }
   private mostrarOkPequenio(): void { this.mostrarModalOk = true; }
   cerrarModalOk(): void { this.mostrarModalOk = false; }
 
-  /* ===== Regla: desactivar masivo por interacción individual ===== */
-  private desactivarMasivoPorInteraccion(): void {
-    this.mismosSpreadsTodos = false;
+  /* ===== Utilidades backend ===== */
+  private desactivarMasivoPorInteraccion(): void { this.mismosSpreadsTodos = false; }
+  private normalizarClave(par: string): string { return String(par || '').toUpperCase().replace(/\//g, '-').trim(); }
+  private leerIdEstrategia(): number | null {
+    const raw = localStorage.getItem(K_ID_ESTRAT);
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : null;
+  }
+  private mapaIdDivisaEstrategia(): Map<string, number> {
+    const mapa = new Map<string, number>();
+    try {
+      const raw = localStorage.getItem(K_STEP2_IDS);
+      if (!raw) return mapa;
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return mapa;
+      for (const d of arr) {
+        const clave = this.normalizarClave(d?.claveParDivisa || '');
+        const id = Number(d?.idDivisaEstrategia);
+        if (clave && Number.isFinite(id)) mapa.set(clave, id);
+      }
+    } catch {}
+    return mapa;
   }
 }
 
-/* Re-exports alineados a los steps previos */
-export { SpreadsComponent as Step6SpreadS } from './step6-spreads';
+/* Export opcional de alias local */
 export { SpreadsComponent as Step6Spreads };

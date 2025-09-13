@@ -1,13 +1,23 @@
 // =========================
-// previsualizacion.component.ts — COMPLETO
+// previsualizacion.component.ts — COMPLETO (con back de spreads)
 // =========================
-import { Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, OnDestroy, OnInit, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { EstrategiasApiService } from '../../../core/api/estrategias-api.service';
 
 interface Horario { inicio: string; fin: string; }
-interface SpreadFila { inicio: string; fin: string; vende: string; compra: string; edit: boolean; }
+interface SpreadFila {
+  inicio: string;
+  fin: string;
+  vende: string;
+  compra: string;
+  edit: boolean;
+  // ⬇️ IDs necesarios para el POST (como en Step 6)
+  idHorarioEstrategia?: number;
+  idSpreadHorario?: number;
+}
 interface ParGrupo { nombre: string; seleccionado: boolean; filas: SpreadFila[]; }
 
 type Sentido = 'ambos' | 'compra' | 'venta';
@@ -20,6 +30,10 @@ const K_PROGRESS = 'wizard_progress';
 const K_SENTIDO  = 'wizard_sentido_operacion';
 const K_FECHA    = 'wizard_fecha_liquidacion';
 const K_DG       = 'wizard_datos_generales';
+
+// NUEVO: mismos keys que usa Step 6 para construir el POST
+const K_STEP2_IDS = 'wizard_step2_divisas_ids';
+const K_ID_ESTRAT = 'wizard_idEstrategia';
 
 // opcional para stepper: marca explícitamente que el paso de spreads quedó correcto
 const K_SPREADS_STATUS = 'wizard_spreads_status';
@@ -40,6 +54,9 @@ export class PrevisualizacionComponent implements OnInit, OnDestroy {
   @Output() finalizar = new EventEmitter<void>();
 
   constructor(private router: Router) {}
+
+  // backend
+  private api = inject(EstrategiasApiService);
 
   // ===== Encabezado =====
   public tituloEstrategia: string = '';
@@ -87,7 +104,7 @@ export class PrevisualizacionComponent implements OnInit, OnDestroy {
   // ===== Estado de error por fila (decimales mínimos) =====
   private rowDecMinError: Record<string, boolean> = {};
 
-  // ===== Helpers de decimales =====
+  // ===== Helpers de decimales/horas/ids =====
   private decimalsForPair(pair: string): number { return pair === EXCLUIDO_POR_REGLA ? 6 : 4; }
   private defaultPrec(pair: string): string { return (0).toFixed(this.decimalsForPair(pair)); }
   private countDecimals(str: string): number { const s = (str ?? '').toString(); const i = s.indexOf('.'); return i === -1 ? 0 : (s.length - i - 1); }
@@ -112,8 +129,6 @@ export class PrevisualizacionComponent implements OnInit, OnDestroy {
     const dec = decRaw;
     return typeof dec === 'string' ? `${ent}.${dec}`.replace(/\.$/, '.') : ent;
   }
-
-  // ===== Reglas de enteros =====
   private forceZeroForNonJPY(val: string): string {
     const s = this.sanitizeSingleDot(val);
     if (!s) return s;
@@ -128,7 +143,6 @@ export class PrevisualizacionComponent implements OnInit, OnDestroy {
     const n = Number(s);
     return Number.isFinite(n) && n >= 1;
   }
-
   private sanitizeStoredForLoad(pair: string, raw: any): string {
     const prec = this.decimalsForPair(pair);
     let v = (raw ?? '').toString();
@@ -139,6 +153,29 @@ export class PrevisualizacionComponent implements OnInit, OnDestroy {
     v = this.trimMaxDecimals(v, prec);
     if (!this.hasMinDecimals(v, prec)) return this.defaultPrec(pair);
     return v;
+  }
+  private normHora(h: string): string { return (h || '').trim() === '24:00' ? '00:00' : (h || '').trim(); }
+  private eqHora(a: string, b: string): boolean { return this.normHora(a) === this.normHora(b); }
+  private normalizarClave(par: string): string { return String(par || '').toUpperCase().replace(/\//g, '-').trim(); }
+  private leerIdEstrategia(): number | null {
+    const raw = localStorage.getItem(K_ID_ESTRAT);
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : null;
+  }
+  private mapaIdDivisaEstrategia(): Map<string, number> {
+    const mapa = new Map<string, number>();
+    try {
+      const raw = localStorage.getItem(K_STEP2_IDS);
+      if (!raw) return mapa;
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return mapa;
+      for (const d of arr) {
+        const clave = this.normalizarClave(d?.claveParDivisa || '');
+        const id = Number(d?.idDivisaEstrategia);
+        if (clave && Number.isFinite(id)) mapa.set(clave, id);
+      }
+    } catch {}
+    return mapa;
   }
 
   // ===== Ciclo de vida =====
@@ -171,7 +208,12 @@ export class PrevisualizacionComponent implements OnInit, OnDestroy {
     this.aplicarBloqueoEnValores();
     this.tieneJPY = this.grupos.some(g => g.nombre === EXCLUIDO_POR_REGLA);
 
+    // Cargar spreads anteriores + IDs de spread si había (por edición)
     this.cargarSpreadsPrevios();
+
+    // INYECTAR IDs DE HORARIO desde localStorage (llenados en Step 5)
+    this.inyectarIdsHorariosDesdeLS();
+
     this.marcarSpreadsCompletos();
 
     window.addEventListener('beforeunload', this.beforeUnloadHandler);
@@ -230,20 +272,22 @@ export class PrevisualizacionComponent implements OnInit, OnDestroy {
   }
 
   private cargarHorarios(): Horario[] {
-    const horariosRaw = localStorage.getItem(K_HORARIOS);
-    let horarios: Horario[] = [];
-    if (horariosRaw) {
-      try {
-        const parsed = JSON.parse(horariosRaw);
-        if (Array.isArray(parsed.horarios) && parsed.horarios.length) {
-          horarios = parsed.horarios.map((h: any) => ({ inicio: h.inicio, fin: h.fin }));
+    // Igual que Step 6: tomar cortes desde wizard_horarios.byDivisa[*]
+    try {
+      const raw = localStorage.getItem(K_HORARIOS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const anyList = parsed?.byDivisa ? (Object.values(parsed.byDivisa)[0] as any[]) : null;
+        if (Array.isArray(anyList) && anyList.length) {
+          return anyList.map(h => ({ inicio: this.normHora(h.horaInicio), fin: this.normHora(h.horaFin) }));
         }
-      } catch {}
-    }
-    if (!horarios.length) {
-      horarios = [{ inicio: '00:00', fin: '16:30' }, { inicio: '16:30', fin: '24:00' }];
-    }
-    return horarios;
+        // Compat antiguo
+        if (Array.isArray(parsed?.horarios)) {
+          return parsed.horarios.map((h: any) => ({ inicio: h.inicio, fin: h.fin }));
+        }
+      }
+    } catch {}
+    return [{ inicio: '00:00', fin: '16:30' }, { inicio: '16:30', fin: '24:00' }];
   }
 
   private cargarSentidos(): Record<string, Sentido> {
@@ -441,7 +485,6 @@ export class PrevisualizacionComponent implements OnInit, OnDestroy {
     }
   }
   private clearAllSelections(): void {
-    // (solo limpia selección visual; NO toca el checkbox global)
     this.setAllSelections(false);
   }
 
@@ -474,7 +517,6 @@ export class PrevisualizacionComponent implements OnInit, OnDestroy {
     this.editSnapshot[this.keyForRow(gIndex, fIndex)] = { vende: f.vende ?? '', compra: f.compra ?? '' };
 
     this.grupos[gIndex].filas[fIndex].edit = true;
-    // ← cualquier edición manual desactiva el masivo
     this.desactivarMasivoPorInteraccion();
 
     this.markLastStep();
@@ -482,14 +524,10 @@ export class PrevisualizacionComponent implements OnInit, OnDestroy {
 
   startEditing(gi: number, fi: number, campo: 'vende'|'compra') {
     const newKey = this.keyFor(gi, fi, campo);
-    if (this.alerta.tipo === 'decimales_min' && this.activeKey !== newKey) {
-      this.clearAlerta();
-    }
+    if (this.alerta.tipo === 'decimales_min' && this.activeKey !== newKey) this.clearAlerta();
     this.activeKey = newKey;
     this.validarCerosAlAplicar = false;
     this.showAlertaCeros = false;
-
-    // ← escribir/editar un campo desactiva el masivo
     this.desactivarMasivoPorInteraccion();
   }
 
@@ -863,6 +901,9 @@ export class PrevisualizacionComponent implements OnInit, OnDestroy {
               g.filas[idx].compra = this.sanitizeStoredForLoad(g.nombre, v);
             }
           }
+
+          // ⬇️ NUEVO: si venimos de edición, preservar idSpreadHorario
+          if (w?.idSpreadHorario != null) g.filas[idx].idSpreadHorario = Number(w.idSpreadHorario);
         });
       });
     } catch {}
@@ -878,7 +919,12 @@ export class PrevisualizacionComponent implements OnInit, OnDestroy {
         windows: g.filas.map(f => {
           const sell = this.puedeEditar(g.nombre, 'vende')  ? (f.vende ?? '') : null;
           const buy  = this.puedeEditar(g.nombre, 'compra') ? (f.compra ?? '') : null;
-          return { start: f.inicio, end: f.fin, sell, buy };
+          // guardamos también IDs si existen para que persistan durante la preview
+          return {
+            start: f.inicio, end: f.fin, sell, buy,
+            idHorarioEstrategia: f.idHorarioEstrategia,
+            idSpreadHorario: f.idSpreadHorario
+          };
         })
       })),
       senseMap,
@@ -956,13 +1002,126 @@ export class PrevisualizacionComponent implements OnInit, OnDestroy {
     const hayErroresFormato = Object.values(this.fieldErrors).some(Boolean) || this.alerta.tipo !== 'none';
     if (!okMinimos || hayErroresFormato || this.showAlertaCeros) return;
 
-    // >>> NUEVO: abre modal de confirmación previa (no aplica todavía) <<<
+    // Abre modal de confirmación previa
     this.mostrarModalConfirmar = true;
   }
 
-  // >>> NUEVO: acciones del modal de confirmación previa <<<
-  confirmarAplicacion() {
+  // ======= NUEVO BLOQUE: IDs de Horario y POST al confirmar =======
+
+  private loadByDivisaFromLS():
+    Record<number, Array<{ idHorarioEstrategia: number; horaInicio: string; horaFin: string }>> {
+    try {
+      const raw = localStorage.getItem(K_HORARIOS);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed?.byDivisa ?? {};
+    } catch { return {}; }
+  }
+
+  private mapearIdsDesde(byDivisa: Record<number, Array<{ idHorarioEstrategia: number; horaInicio: string; horaFin: string }>>): void {
+    try {
+      const step2Raw = localStorage.getItem(K_STEP2_IDS);
+      if (!step2Raw) return;
+      const pares = JSON.parse(step2Raw) as Array<{ claveParDivisa: string; idDivisaEstrategia: number }>;
+      const mapaParAIdDiv = new Map<string, number>();
+      for (const d of pares) {
+        const clave = this.normalizarClave(d?.claveParDivisa || '');
+        const id = Number(d?.idDivisaEstrategia);
+        if (clave && Number.isFinite(id)) mapaParAIdDiv.set(clave, id);
+      }
+      for (const g of this.grupos) {
+        const idDiv = mapaParAIdDiv.get(this.normalizarClave(g.nombre));
+        if (!idDiv) continue;
+        const lista = byDivisa[idDiv] || [];
+        for (const fila of g.filas) {
+          if (fila.idHorarioEstrategia != null) continue;
+          const m = lista.find(h => this.eqHora(h.horaInicio, fila.inicio) && this.eqHora(h.horaFin, fila.fin));
+          if (m) fila.idHorarioEstrategia = m.idHorarioEstrategia;
+        }
+      }
+    } catch {}
+  }
+
+  private inyectarIdsHorariosDesdeLS() {
+    const byDivisa = this.loadByDivisaFromLS();
+    this.mapearIdsDesde(byDivisa);
+  }
+
+  private async asegurarIdsHorarios(idEstrategia: number): Promise<boolean> {
+    // 1) Intento con lo que ya hay en LS
+    let byDivisa = this.loadByDivisaFromLS();
+    this.mapearIdsDesde(byDivisa);
+    let faltan = this.grupos.some(g => g.filas.some(f => f.idHorarioEstrategia == null));
+    if (!faltan) return true;
+
+    // 2) Como fallback, reintento consultando al back (si está disponible)
+    try {
+      // @ts-ignore: método opcional en el ApiService
+      await this.api.getHorariosPorEstrategia(idEstrategia).toPromise();
+    } catch (e) {
+      console.error('No se pudieron recuperar horarios por estrategia (fallback):', e);
+    }
+
+    // 3) Releo LS y reintento mapear
+    byDivisa = this.loadByDivisaFromLS();
+    this.mapearIdsDesde(byDivisa);
+    faltan = this.grupos.some(g => g.filas.some(f => f.idHorarioEstrategia == null));
+    return !faltan;
+  }
+
+  // >>> acciones del modal de confirmación previa <<<
+  async confirmarAplicacion() {
     this.mostrarModalConfirmar = false;
+
+    // Validaciones mínimas otra vez por seguridad
+    this.validarCerosAlAplicar = true;
+    const okMinimos = this.validarMinimosGlobal();
+    this.recomputeZeroAlert();
+    const hayErrores = !okMinimos || this.showAlertaCeros || Object.values(this.fieldErrors).some(Boolean);
+    if (hayErrores) return;
+
+    const idEstrategia = this.leerIdEstrategia();
+    const mapaIds = this.mapaIdDivisaEstrategia();
+    if (!idEstrategia || !mapaIds.size) {
+      console.error('No hay idEstrategia o ids de divisa; no se puede confirmar.');
+      return;
+    }
+
+    // Asegurar que todos los tramos tengan idHorarioEstrategia
+    const okIds = await this.asegurarIdsHorarios(idEstrategia);
+    if (!okIds) {
+      console.error('Faltan idHorarioEstrategia en uno o más tramos; regresa a Paso 5 y guarda horarios.');
+      return;
+    }
+
+    // Construir payload final (igual Step 6)
+    const reqBack = {
+      idEstrategia,
+      spreadsDivisa: this.grupos.map(g => {
+        const idDivisaEstrategia = mapaIds.get(this.normalizarClave(g.nombre)) ?? null;
+        if (idDivisaEstrategia == null) return null;
+        return {
+          idDivisaEstrategia,
+          spreadsHorario: g.filas
+            .filter(f => f.idHorarioEstrategia != null)
+            .map(f => ({
+              ...(f.idSpreadHorario != null ? { idSpreadHorario: f.idSpreadHorario } : {}),
+              idHorarioEstrategia: f.idHorarioEstrategia!,
+              spreadCompra: Number(this.sanitizeSingleDot(f.compra || '0')) || 0,
+              spreadVenta:  Number(this.sanitizeSingleDot(f.vende  || '0')) || 0
+            }))
+        };
+      }).filter(Boolean)
+    } as any;
+
+    try {
+      // @ts-ignore - método postSpreads(payload) definido en el ApiService
+      await this.api.postSpreads(reqBack).toPromise();
+    } catch (e: any) {
+      console.error('Error al registrar spreads en confirmación (Paso 7):', e);
+      return;
+    }
+
+    // Éxito: limpiar wizard y terminar
     this.clearWizardStorage();
     window.removeEventListener('beforeunload', this.beforeUnloadHandler);
     this.abrirModalExito();
